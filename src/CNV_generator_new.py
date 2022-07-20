@@ -19,6 +19,7 @@ df_dup = pd.DataFrame(columns = [1,2,3,4])  #?
 out = open(pathOut + "chrs.bed","w")
 print("Generating duplication and deletion coordinates")
 for fasta_file in SeqIO.parse(open(FASTA),"fasta"):
+    print(type(fasta_file))
     #first line is fasta ID, 1(?), length of fasta file
     first_line = "\t".join([fasta_file.id,"1",str(len(str(fasta_file.seq)))]) + "\n"
     out.write(first_line)
@@ -47,13 +48,13 @@ for fasta_file in SeqIO.parse(open(FASTA),"fasta"):
 out.close()
 df_dup.to_csv(pathOut + "dup.bed",header=False,index=False,sep="\t")
 df_del.to_csv(pathOut + "del.bed",header=False,index=False,sep="\t")
-
 dup = pybedtools.BedTool(pathOut + 'dup.bed')
 dup2 = dup.sort().merge()
 dele = pybedtools.BedTool(pathOut + 'del.bed')
 dele2 = dele.sort().merge()
 dup2.intersect(dele, wa = True, v = True).saveas(pathOut + "dup2.bed")
 dele2.intersect(dup, wa = True, v = True).saveas(pathOut + "del2.bed")
+##########################################################################################################################
 
 print("Generating duplication and deletion frequencies")
 NUMBER_OF_CHROMOSOMES = 1
@@ -106,10 +107,10 @@ for i in no_chrs:
     os.remove(pathOut + "normal3." + str(i) + ".bed")
     os.remove(pathOut + "normal2." + str(i) + ".bed")
     os.remove(pathOut + "normal." + str(i) + ".bed")
-os.remove(pathOut + "del.bed")
-os.remove(pathOut + "del2.bed")
-os.remove(pathOut + "del3.bed")
-os.remove(pathOut + "dup.bed")
-os.remove(pathOut + "dup2.bed")
-os.remove(pathOut + "dup3.bed")
-os.remove(pathOut + "chrs.bed")
+# os.remove(pathOut + "del.bed")
+# os.remove(pathOut + "del2.bed")
+# os.remove(pathOut + "del3.bed")
+# os.remove(pathOut + "dup.bed")
+# os.remove(pathOut + "dup2.bed")
+# os.remove(pathOut + "dup3.bed")
+# os.remove(pathOut + "chrs.bed")
