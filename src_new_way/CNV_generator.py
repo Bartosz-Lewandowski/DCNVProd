@@ -94,4 +94,7 @@ if __name__ == "__main__":
 PO WSZYSTKIM ZOSTAJE PLIK DEL.1.bed, dup.1.bed, total.1.bed
 gdzie tak naprawdę tylko total1.bed jest używany w simChr.py - więc on jest tylko wykorzystywany
 mogę tę strukturę total1.bed wykorzystać jako dataframe i wtedy go zapisać w pamięci, zamiast zapisywać w pliku
+Tyczy się tekstu na górze:
+Zamiast zachowywać to w padnasie zachowuj to w arrayu i wtedy będę mógł to przyspieszyć z numbą.
+
 """
