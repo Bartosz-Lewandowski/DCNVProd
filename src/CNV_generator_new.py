@@ -57,26 +57,26 @@ dele2.intersect(dup, wa = True, v = True).saveas(pathOut + "del2.bed")
 ##########################################################################################################################
 
 print("Generating duplication and deletion frequencies")
-NUMBER_OF_CHROMOSOMES = 1
+NUMBER_OF_CHROMOSOMES = 20
 no_chrs = range(1, NUMBER_OF_CHROMOSOMES+1)
 chr_freq = {}
 for i in no_chrs:
-    chr_freq[i] = round(i/1,3)
+    chr_freq[i] = round(i/NUMBER_OF_CHROMOSOMES,3)
 
 for i in ["del","dup"]:
     out = open(pathOut + i + "3.bed","w")
     for line in open(pathOut + i + "2.bed"):
         if i == "del":
             #1 bo dla jednego (i pierwszego) chromosomu chcemy zrobić modyfikację
-            num = random.randint(1,1)
+            num = random.randint(1,NUMBER_OF_CHROMOSOMES)
             out.write(line.rstrip() + "\tdel\t" + str(chr_freq[num]) + "\t0\n")
         elif i == "dup":
-            num = random.randint(1,1)
+            num = random.randint(1,NUMBER_OF_CHROMOSOMES)
             count = np.random.choice([2,3,4,5,6,7,8,9,10], 1, p=[0.5, 0.1, 0.1, 0.05, 0.05,0.05,0.05,0.05,0.05])[0]
-            freqs = num/1
+            freqs = num/NUMBER_OF_CHROMOSOMES
             cp = (count*freqs) + ((1-freqs) * 1)
             while cp == 1.0:
-                num = random.randint(1,1)
+                num = random.randint(1,NUMBER_OF_CHROMOSOMES)
                 count = np.random.choice([2,3,4,5,6,7,8,9,10], 1, p=[0.5, 0.1, 0.1, 0.05, 0.05,0.05,0.05,0.05,0.05])[0]
             out.write(line.rstrip() + "\tdup\t" + str(chr_freq[num]) + "\t" + str(count) + "\n")
     out.close()
