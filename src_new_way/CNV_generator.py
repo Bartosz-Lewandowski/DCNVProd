@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from multiprocessing.spawn import prepare
 import pandas as pd
 import numpy as np
 from Bio import SeqIO
@@ -13,9 +14,9 @@ class BedFormat:
     chr: str
     start: int
     end: int
-    cnv_type: str
-    cov: float
-    freq: float
+    cnv_type: str = None
+    cov: float = None
+    freq: float = None
 
 class CNVGenerator:
     def __init__(self, fasta_file: str, pathout: str = "train/") -> None:
@@ -26,18 +27,25 @@ class CNVGenerator:
             os.makedirs(self.pathout)
         fasta = SeqIO.parse(open(self.fasta_file), "fasta")
         self.num_of_chroms = len(tuple(fasta))
-        
-    def generate_cnv(self,) -> None:
-        chr_info = []
+
+    def generate_cnv(self):
+        chr_info = self.bedfile_chr_info()
+        cnvs = self.bedfile_dup_del()
+
+    def bedfile_chr_info(self):
+        chr_info = np.array([])
+        for chr in tqdm(SeqIO.parse(open(self.fasta_file), "fasta"), total=self.num_of_chroms):
+            chr_info = np.append(chr_info, self.chromosome_info(chr))
+        return chr_info
+
+
+    def bedfile_dup_del(self,) -> None:
         for cnv_type in "del", "dup":
             print(f"Creating {cnv_type}...")
-            df = pd.DataFrame()
+            out = np.array([])
             for chr in tqdm(SeqIO.parse(open(self.fasta_file), "fasta"), total=self.num_of_chroms):
-                chr_info.append(self.chromosome_info(chr))
-                df = pd.concat([df,self.generate_coords(chr)])
-            df.to_csv(self.pathout + cnv_type + ".bed", header=False, index=False, sep = "\t")
-        chr_info_wo_duplicates = list(set(chr_info))
-        self.write_chromosome_info(sorted(chr_info_wo_duplicates))
+                out = np.append(np.array([out,self.generate_coords(chr)]))
+        return out
 
     def cnv_sort_and_merge(self, cnv_type):
         cnv = pybedtools.BedTool(self.pathout + cnv_type +'.bed')
@@ -73,18 +81,18 @@ class CNVGenerator:
         # print(f"Duplikacje i delecje stanowią {he}% całego genomu")
         start = np.random.randint(1,len_fasta, size=(cnv_count))
         end = [st + lgt for st, lgt in zip(start, lenghts)]
-        cnv = pd.DataFrame({1:[fasta_file.id]*cnv_count,2:start,3:end,4:lenghts})
-        return cnv 
+        ids = list(fasta_file.id)*cnv_count
+        return np.array([BedFormat(id, st, en) for id,st,en in zip(ids, start, end)])
 
-    def chromosome_info(self, fasta_file):
+    def chromosome_info(self, fasta_file) -> BedFormat:
         str_fasta = str(fasta_file.seq)
         len_fasta = len(str_fasta)
-        return "\t".join([fasta_file.id,"1",str(len_fasta)])
+        return np.array([BedFormat(fasta_file.id,"1",len_fasta)])
 
-    def write_chromosome_info(self, chr_info):
-        chr_info_str = "\n".join([x for x in chr_info])
-        with open(self.pathout + "chrs.bed", "w") as chr_file:
-            chr_file.write(chr_info_str)
+    # def write_chromosome_info(self, chr_info):
+    #     chr_info_str = "\n".join([x for x in chr_info])
+    #     with open(self.pathout + "chrs.bed", "w") as chr_file:
+    #         chr_file.write(chr_info_str)
 
     def generate_freq(self):
         chr_freq = {i: round(i/self.num_of_chroms,3) for i in range(1,self.num_of_chroms+1)}
@@ -102,25 +110,24 @@ class CNVGenerator:
             output = np.append(output, out)
         return output
 
-    def remove_overlaps(self):
+    def bedfile_with_normal_seq(self, dup, dele):
         for i in self.num_of_chroms:
-            dele, dup = self.generate_freq()
             print("Creating bedfiles for sample " + str(i))
             normal = pybedtools.BedTool().window_maker(b=self.pathOut + "chrs.bed", w = 5)
+            normal2 = normal.intersect(dup, v=True, wa=True).intersect(dele, v=True, wa=True).sort().merge()
+            out = np.array([])
+            for line in normal2:
+                out = np.append(out, BedFormat(line.chrom, line.start, line.end, "normal", 1, 1))
+            return out
 
-            os.system(bedtools_path + " intersect -v -wa -a " + pathOut + "normal." + str(i) + ".bed -b " + pathOut + "dup." + str(i) + ".bed | " + 
-                        bedtools_path + " intersect -v -wa -a stdin -b " + pathOut + "del." + str(i) + ".bed | " + 
-                        bedtools_path + " sort -i stdin | " + bedtools_path + " merge -i stdin > " + pathOut + "normal2." + str(i) + ".bed")
+    def create_total_bed(self, dup, dele, normal):
+        total = np.append(dup, dele, normal)
+        total_sorted = pybedtools.BedTool(self.prepare_data_for_BedTool(total)).sort()
+        return total_sorted
 
-            normal2 = normal.intersect(dup, v=True, wa=True).intersect(dele, )
-
-            out = open(pathOut + "normal3." + str(i) + ".bed","w")
-            for line in open(pathOut + "normal2." + str(i) + ".bed"):
-                out.write(line.rstrip() + "\tnormal\t1\t1\n")
-            out.close()
-
-    # def create_total_bed(self):
-    #     os.system("cat " + pathOut + "normal3." + str(i) + ".bed " + pathOut + "dup." + str(i) + ".bed " + pathOut + "del." + str(i) + ".bed | " + bedtools_path + " sort -i stdin > " + pathOut + "total." + str(i) + ".bed")
+    def prepare_data_for_BedTool(self, seq: np.array) -> tuple:
+        for line in seq:
+            yield (line.chr, line.start, line.end, line.cnv_type, line.cov, line.freq)
 
     # def modify_fasta_file(self):
     #     os.system("cp " + "fasta.fa" + " " + pathOut + "train" + "_noCNV.fa")
@@ -153,9 +160,6 @@ if __name__ == "__main__":
     dele = cnv.cnv_sort_and_merge("del")
     dup = cnv.cnv_sort_and_merge("dup")
     dup_intersect = cnv.cnv_intersect(dup, dele)
-    for line in dup_intersect:
-        print(line)
-        break
 
 
 """
