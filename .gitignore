@@ -3,3 +3,6 @@ train_sim/
 train_bam/
 train_bed/
 __pycache__/
+results.bed
+stats_windows.csv
+reference_genome/*.fa.*
