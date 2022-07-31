@@ -1,2 +1,5 @@
 train/
-sim_train/
+train_sim/
+train_bam/
+train_bed/
+__pycache__/
