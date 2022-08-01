@@ -14,7 +14,6 @@ class BedFormat:
     start: int
     end: int
     cnv_type: str = ""
-    cov: float = 0.0
     freq: int = 0
 
 
@@ -35,24 +34,21 @@ class CNVGenerator:
         total = self.create_total_bed(dup_freq, dele_freq, normal)
         return total
 
-    def clean_bed_dup_del(self) -> tuple[BedTool, BedTool, np.array[BedFormat]]:
+    def clean_bed_dup_del(self) -> tuple[BedTool, BedTool, np.array]:
         dup, dele, chr_info = self._create_bed_with_coords()
         dele_merged = self._cnv_sort_and_merge(dele)
         dup_merged = self._cnv_sort_and_merge(dup)
         dup_intersect, dele_intersect = self._cnv_intersect(dup_merged, dele_merged)
         return dup_intersect, dele_intersect, chr_info
 
-    def generate_freq(
-        self, dup: np.array[BedFormat], dele: np.array[BedFormat]
-    ) -> tuple[np.array[BedFormat], np.array[BedFormat]]:
-        chr_freq = {i: round(i / self.num_of_chroms, 3) for i in range(1, self.num_of_chroms + 1)}
-        dup_with_freq: np.array = self._create_dup_freqs(dup, chr_freq)
-        dele_with_freq: np.array = self._create_dele_freqs(dele, chr_freq)
+    def generate_freq(self, dup: np.array, dele: np.array) -> tuple[np.array, np.array]:
+        dup_with_freq: np.array = self._create_dup_freqs(dup)
+        dele_with_freq: np.array = self._create_dele_freqs(dele)
         return dup_with_freq, dele_with_freq
 
     def bedfile_with_normal_seq(
-        self, dup: np.array[BedFormat], dele: np.array[BedFormat], chr_info: np.array[BedFormat]
-    ) -> np.array[BedFormat]:
+        self, dup: np.array, dele: np.array, chr_info: np.array
+    ) -> np.array:
         chr_info_bed = CNVGenerator.__BedFormat_to_BedTool(chr_info)
         normal = BedTool().window_maker(chr_info_bed, w=5)
         dup_bedtools = CNVGenerator.__BedFormat_to_BedTool(dup).saveas(f"{self.pathout}dup.bed")
@@ -66,13 +62,11 @@ class CNVGenerator:
         out_normal = np.array([])
         for line in normal2:
             out_normal = np.append(
-                out_normal, BedFormat(line.chrom, line.start, line.end, "normal", 1, 1)
+                out_normal, BedFormat(line.chrom, line.start, line.end, "normal", 1)
             )
         return out_normal
 
-    def create_total_bed(
-        self, dup: np.array[BedFormat], dele: np.array[BedFormat], normal: np.array[BedFormat]
-    ) -> np.array[BedFormat]:
+    def create_total_bed(self, dup: np.array, dele: np.array, normal: np.array) -> np.array:
         total = np.concatenate((dup, dele, normal), axis=0)
         total_sorted = (
             CNVGenerator.__BedFormat_to_BedTool(total).sort().saveas(f"{self.pathout}total.bed")
@@ -80,30 +74,28 @@ class CNVGenerator:
         total_BedFormat = CNVGenerator.__BedTool_to_BedFormat(total_sorted)
         return total_BedFormat
 
-    def _create_dele_freqs(self, dele: np.array[BedFormat], chr_freq: dict) -> np.array[BedFormat]:
+    def _create_dele_freqs(self, dele: np.array) -> np.array:
         out = np.array([])
         for line in dele:
-            num = random.randint(1, self.num_of_chroms)
             out = np.append(
                 out,
-                np.array(BedFormat(line.chrom, line.start, line.end, "del", chr_freq[num], 0)),
+                np.array(BedFormat(line.chrom, line.start, line.end, "del", 0)),
             )
         return out
 
-    def _create_dup_freqs(self, dup: np.array[BedFormat], chr_freq: dict) -> np.array[BedFormat]:
+    def _create_dup_freqs(self, dup: np.array) -> np.array:
         out = np.array([])
         for line in dup:
-            num = random.randint(1, self.num_of_chroms)
             count = np.random.choice(
                 list(range(2, 10)), 1, p=[0.5, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05, 0.05]
             )[0]
             out = np.append(
                 out,
-                np.array(BedFormat(line.chrom, line.start, line.end, "dup", chr_freq[num], count)),
+                np.array(BedFormat(line.chrom, line.start, line.end, "dup", count)),
             )
         return out
 
-    def _cnv_sort_and_merge(self, cnv: np.array[BedFormat]) -> BedTool:
+    def _cnv_sort_and_merge(self, cnv: np.array) -> BedTool:
         cnv_bed = CNVGenerator.__BedFormat_to_BedTool(cnv)
         cnv_merged = cnv_bed.sort().merge()
         return cnv_merged
@@ -115,7 +107,7 @@ class CNVGenerator:
 
     def _create_bed_with_coords(
         self,
-    ) -> tuple[np.array[BedFormat], np.array[BedFormat], np.array[BedFormat]]:
+    ) -> tuple[np.array, np.array, np.array]:
         dup = np.array([])
         dele = np.array([])
         chr_info = np.array([])
@@ -126,7 +118,7 @@ class CNVGenerator:
 
         return dup, dele, chr_info
 
-    def __generate_coords(self, fasta_file) -> np.array[BedFormat]:
+    def __generate_coords(self, fasta_file) -> np.array:
         len_fasta: int = len(fasta_file.seq)
         lenghts: list = []
         max_cnv_length = 100
@@ -144,12 +136,12 @@ class CNVGenerator:
         ids = [fasta_file.id] * cnv_count
         return np.array([BedFormat(id, st, en) for id, st, en in zip(ids, start, end)])
 
-    def __chromosome_info(self, fasta_file) -> np.array[BedFormat]:
+    def __chromosome_info(self, fasta_file) -> np.array:
         len_fasta = len(fasta_file.seq)
         return np.array([BedFormat(fasta_file.id, 1, len_fasta)])
 
     @staticmethod
-    def __BedTool_to_BedFormat(bedfile: BedTool) -> np.array[BedFormat]:
+    def __BedTool_to_BedFormat(bedfile: BedTool) -> np.array:
         out = np.array([])
         for line in bedfile:
             out = np.append(
@@ -159,23 +151,20 @@ class CNVGenerator:
                     int(line.start),
                     int(line.end),
                     line.name,
-                    float(line.score),
-                    int(line.strand),
+                    int(line.score),
                 ),
             )
         return out
 
     @staticmethod
-    def __BedFormat_to_BedTool(seq: np.array[BedFormat]) -> BedTool:
+    def __BedFormat_to_BedTool(seq: np.array) -> BedTool:
         out_str = ""
         for line in seq:
-            out_str += (
-                f"{line.chr} {line.start} {line.end} {line.cnv_type} {line.cov} {line.freq}\n"
-            )
+            out_str += f"{line.chr} {line.start} {line.end} {line.cnv_type} {line.freq}\n"
         bedfile = BedTool(out_str, from_string=True)
         return bedfile
 
-    def modify_fasta_file(self, total_file: np.array[BedFormat]) -> str:
+    def modify_fasta_file(self, total_file: np.array) -> str:
         fasta_original = {
             fasta.id: fasta.seq for fasta in SeqIO.parse(open(self.fasta_file), "fasta")
         }
