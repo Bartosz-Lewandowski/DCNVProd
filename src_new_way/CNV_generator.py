@@ -18,6 +18,16 @@ class BedFormat:
 
 
 class CNVGenerator:
+    """
+    CNV simulator.
+    With given reference genome this function
+    generate random CNV's across the chronosomes.
+
+    Args:
+        fasta_file: reference genome in fasta format
+        pathout: folder where to store output files
+    """
+
     def __init__(self, fasta_file: str, pathout: str = "train_bed/") -> None:
         self.fasta_file = fasta_file
         self.pathout = pathout
@@ -28,6 +38,11 @@ class CNVGenerator:
         self.num_of_chroms: int = len(tuple(fasta))
 
     def generate_cnv(self) -> BedFormat:
+        """_summary_
+
+        Returns:
+            BedFormat: _description_
+        """
         dup, dele, chr_info = self.clean_bed_dup_del()
         dup_freq, dele_freq = self.generate_freq(dup, dele)
         normal = self.bedfile_with_normal_seq(dup_freq, dele_freq, chr_info)
@@ -42,6 +57,15 @@ class CNVGenerator:
         return dup_intersect, dele_intersect, chr_info
 
     def generate_freq(self, dup: np.array, dele: np.array) -> tuple[np.array, np.array]:
+        """Method to generate frequencies.
+
+        Args:
+            dup (np.array): array with BedFromat as values from intersect.
+            dele (np.array): array with BedFromat as values from intersect.
+
+        Returns:
+            tuple[np.array, np.array]: Returns same dup and dele object, but with frequencies
+        """
         dup_with_freq: np.array = self._create_dup_freqs(dup)
         dele_with_freq: np.array = self._create_dele_freqs(dele)
         return dup_with_freq, dele_with_freq
