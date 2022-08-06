@@ -145,17 +145,17 @@ class CNVGenerator:
     def __generate_coords(self, fasta_file) -> np.array:
         len_fasta: int = len(fasta_file.seq)
         lenghts: list = []
-        max_cnv_length = 100
+        max_cnv_length = 100000
         cnv_count = int(
             (len_fasta / max_cnv_length) / 2
         )  # number of cnv that can fit in data devided by two because there are two types of cnv (duplications and deletions)
         while len(lenghts) < cnv_count:
-            cnv_range = random.randint(50, max_cnv_length)
+            cnv_range = random.randrange(50, max_cnv_length, step=50)
             lenghts.append(cnv_range)
         # dodać tutaj test -> assert, że suma tych dwóch list będzie mniejsza od długości całego genomu
         # he = (np.sum(dup_lengths) + np.sum(del_lengths))/len_fasta
         # print(f"Duplikacje i delecje stanowią {he}% całego genomu")
-        start = np.random.randint(1, len_fasta, size=(cnv_count))
+        start = [random.randrange(1, len_fasta, step=50) for _ in range(cnv_count)]
         end = [st + lgt for st, lgt in zip(start, lenghts)]
         ids = [fasta_file.id] * cnv_count
         return np.array([BedFormat(id, st, en) for id, st, en in zip(ids, start, end)])
@@ -199,7 +199,7 @@ class CNVGenerator:
             elif line.cnv_type == "normal":
                 fasta_modified[line.chr] += fasta_original[line.chr][line.start : line.end]
             elif line.cnv_type == "dup":
-                seq_to_copy = self._find_seq_to_copy(line, fasta_original)
+                seq_to_copy = fasta_original[line.chr][line.start : line.end]
                 str_modified = seq_to_copy * line.freq
                 fasta_modified[line.chr] += str_modified
 
@@ -215,9 +215,3 @@ class CNVGenerator:
             with open(fasta_cnv_name, "a") as fasta_cnv:
                 fasta_cnv.write(f">{id}\n{fasta_str}\n")
         return fasta_cnv_name
-
-    def _find_seq_to_copy(self, line: BedFormat, fasta_original: dict[str, str]) -> str:
-        dup_len = line.end - line.start
-        seq_len = int(dup_len / line.freq)
-        seq_to_copy = fasta_original[line.chr][line.start : line.start + seq_len]
-        return seq_to_copy
