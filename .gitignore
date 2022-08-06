@@ -6,3 +6,7 @@ __pycache__/
 results.bed
 stats_windows.csv
 reference_genome/*.fa.*
+.DS_Store
+/stats
+/real_data
+/real_data_target
