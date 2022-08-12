@@ -10,3 +10,5 @@ reference_genome/*.fa.*
 /stats
 /real_data
 /real_data_target
+cnv-detection/
+reference_genome/
