@@ -1,5 +1,6 @@
 import os
 import random
+from collections import Counter
 from dataclasses import dataclass
 
 import numpy as np
@@ -166,27 +167,48 @@ class CNVGenerator:
 
         return dup, dele, chr_info
 
-    def _find_CNV_windows(
-        self, len_fasta: int, lenghts: list
-    ) -> tuple[list[int], list[int]]:
+    def _find_CNV_windows(self, fasta, lenghts: list) -> tuple[list[int], list[int]]:
         starts: list = []
         ends: list = []
         for i in lenghts:
             wrong_cnv_coords = True
             while wrong_cnv_coords:
-                start = random.randrange(1, len_fasta - i, step=50)
+                start = random.randrange(1, len(fasta.seq) - i, step=50)
                 stop = start + i
                 if starts:
-                    for start_taken, stop_taken in zip(starts, ends):
-                        if not (start >= start_taken and start <= stop_taken) or not (
-                            stop <= stop_taken and stop >= start_taken
-                        ):
-                            wrong_cnv_coords = False
+                    if self.__check_overlaping(
+                        start, stop, starts, ends
+                    ) and self.__check_occur(fasta, start, stop):
+                        wrong_cnv_coords = False
                 else:
-                    wrong_cnv_coords = False
+                    if self.__check_occur(fasta, start, stop):
+                        wrong_cnv_coords = False
             starts.append(start)
             ends.append(stop)
         return starts, ends
+
+    def __check_occur(self, fasta, start: int, stop: int) -> bool:
+        if self.__get_N_percentage(fasta.seq[start:stop]) < 0.7:
+            return True
+        else:
+            return False
+
+    def __check_overlaping(
+        self, start: int, stop: int, starts: list, ends: list
+    ) -> bool:
+        for start_taken, stop_taken in zip(starts, ends):
+            if not (start >= start_taken and start <= stop_taken) or not (
+                stop <= stop_taken and stop >= start_taken
+            ):
+                return True
+            else:
+                return False
+        return False
+
+    def __get_N_percentage(self, seq) -> float:
+        total = len(seq)
+        N_num = Counter(seq).get("N", 0)
+        return N_num / total
 
     def __generate_coords(self, fasta_file) -> np.array:
         len_fasta: int = len(fasta_file.seq)
@@ -201,7 +223,7 @@ class CNVGenerator:
         # dodać tutaj test -> assert, że suma tych dwóch list będzie mniejsza od długości całego genomu
         # he = (np.sum(dup_lengths) + np.sum(del_lengths))/len_fasta
         # print(f"Duplikacje i delecje stanowią {he}% całego genomu")
-        start, end = self._find_CNV_windows(len_fasta, lenghts)
+        start, end = self._find_CNV_windows(fasta_file, lenghts)
         ids = [fasta_file.id] * cnv_count
         return np.array([BedFormat(id, st, en) for id, st, en in zip(ids, start, end)])
 
