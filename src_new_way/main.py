@@ -1,8 +1,10 @@
 import os
+import time
 
 from CNV_generator import CNVGenerator
-from generate_stats import Stats
+from generate_features import Stats
 from sim_reads import SimReads
+from train import train_data
 
 
 def create_sim_bam(ref_genome_fasta: str) -> None:
@@ -17,8 +19,11 @@ def create_sim_bam(ref_genome_fasta: str) -> None:
 
 
 if __name__ == "__main__":
-    ref_genome_fasta = "reference_genome/ref_genome_short.fa"
+    ref_genome_fasta = "reference_genome/ref_genome.fa"
     create_sim_bam(ref_genome_fasta)
-    stats = Stats()
-    df = stats.create_genomecov("train_sim/total.bam")
-    df_with_stats = stats.generate_stats(df)
+    start_time = time.time()
+    stats = Stats("train_sim/total.bam", output_folder="sim")
+    df_with_stats = stats.generate_stats()
+    print(f"Time elapsed with bedtools:  {time.time() - start_time}")
+    stats.combine_into_one_big_file("train_bed/total.bed")
+    train_data("stats/sim/combined.csv")
