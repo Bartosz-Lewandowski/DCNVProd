@@ -90,8 +90,12 @@ class CNVGenerator:
         print("window maker")
         normal = BedTool().window_maker(chr_info_bed, w=50)
         print("dup dele")
-        dup_bedtools = CNVGenerator.__BedFormat_to_BedTool(dup).saveas(f"{self.pathout}dup.bed")
-        dele_bedtools = CNVGenerator.__BedFormat_to_BedTool(dele).saveas(f"{self.pathout}del.bed")
+        dup_bedtools = CNVGenerator.__BedFormat_to_BedTool(dup).saveas(
+            f"{self.pathout}dup.bed"
+        )
+        dele_bedtools = CNVGenerator.__BedFormat_to_BedTool(dele).saveas(
+            f"{self.pathout}del.bed"
+        )
         print("normal 2")
         normal2 = (
             normal.intersect(dup_bedtools, v=True, wa=True)
@@ -106,7 +110,9 @@ class CNVGenerator:
             )
         return out_normal
 
-    def create_total_bed(self, dup: np.array, dele: np.array, normal: np.array) -> np.array:
+    def create_total_bed(
+        self, dup: np.array, dele: np.array, normal: np.array
+    ) -> np.array:
         print("creating total file")
         total = np.concatenate((dup, dele, normal), axis=0)
         total_sorted = CNVGenerator.__BedFormat_to_BedTool(total).sort()
@@ -151,28 +157,51 @@ class CNVGenerator:
         dele = np.array([])
         chr_info = np.array([])
         print("Creating bed objects with coordinates of cnv")
-        for chr in tqdm(SeqIO.parse(open(self.fasta_file), "fasta"), total=self.num_of_chroms):
+        for chr in tqdm(
+            SeqIO.parse(open(self.fasta_file), "fasta"), total=self.num_of_chroms
+        ):
             dup = np.append(dup, np.array([self.__generate_coords(chr)]))
             dele = np.append(dele, np.array([self.__generate_coords(chr)]))
             chr_info = np.append(chr_info, np.array([self.__chromosome_info(chr)]))
 
         return dup, dele, chr_info
 
+    def _find_CNV_windows(
+        self, len_fasta: int, lenghts: list
+    ) -> tuple[list[int], list[int]]:
+        starts: list = []
+        ends: list = []
+        for i in lenghts:
+            wrong_cnv_coords = True
+            while wrong_cnv_coords:
+                start = random.randrange(1, len_fasta - i, step=50)
+                stop = start + i
+                if starts:
+                    for start_taken, stop_taken in zip(starts, ends):
+                        if not (start >= start_taken and start <= stop_taken) or not (
+                            stop <= stop_taken and stop >= start_taken
+                        ):
+                            wrong_cnv_coords = False
+                else:
+                    wrong_cnv_coords = False
+            starts.append(start)
+            ends.append(stop)
+        return starts, ends
+
     def __generate_coords(self, fasta_file) -> np.array:
         len_fasta: int = len(fasta_file.seq)
-        lenghts: list = []
         max_cnv_length = 1000
         cnv_count = int(
             (len_fasta / max_cnv_length) / 2
         )  # number of cnv that can fit in data devided by two because there are two types of cnv (duplications and deletions)
-        while len(lenghts) < cnv_count:
-            cnv_range = random.randrange(50, max_cnv_length, step=50)
-            lenghts.append(cnv_range)
+        lenghts: list = sorted(
+            [random.randrange(50, max_cnv_length, step=50) for _ in range(cnv_count)],
+            reverse=True,
+        )
         # dodać tutaj test -> assert, że suma tych dwóch list będzie mniejsza od długości całego genomu
         # he = (np.sum(dup_lengths) + np.sum(del_lengths))/len_fasta
         # print(f"Duplikacje i delecje stanowią {he}% całego genomu")
-        start = [random.randrange(1, len_fasta, step=50) for _ in range(cnv_count)]
-        end = [st + lgt for st, lgt in zip(start, lenghts)]
+        start, end = self._find_CNV_windows(len_fasta, lenghts)
         ids = [fasta_file.id] * cnv_count
         return np.array([BedFormat(id, st, en) for id, st, en in zip(ids, start, end)])
 
@@ -200,7 +229,9 @@ class CNVGenerator:
     def __BedFormat_to_BedTool(seq: np.array) -> BedTool:
         out_str = ""
         for line in seq:
-            out_str += f"{line.chr} {line.start} {line.end} {line.cnv_type} {line.freq}\n"
+            out_str += (
+                f"{line.chr} {line.start} {line.end} {line.cnv_type} {line.freq}\n"
+            )
         bedfile = BedTool(out_str, from_string=True)
         return bedfile
 
@@ -208,12 +239,16 @@ class CNVGenerator:
         fasta_original = {
             fasta.id: fasta.seq for fasta in SeqIO.parse(open(self.fasta_file), "fasta")
         }
-        fasta_modified = {fasta.id: "" for fasta in SeqIO.parse(open(self.fasta_file), "fasta")}
+        fasta_modified = {
+            fasta.id: "" for fasta in SeqIO.parse(open(self.fasta_file), "fasta")
+        }
         for line in tqdm(total_file, total=len(total_file)):
             if line.cnv_type == "del":
                 continue
             elif line.cnv_type == "normal":
-                fasta_modified[line.chr] += fasta_original[line.chr][line.start : line.end]
+                fasta_modified[line.chr] += fasta_original[line.chr][
+                    line.start : line.end
+                ]
             elif line.cnv_type == "dup":
                 seq_to_copy = fasta_original[line.chr][line.start : line.end]
                 str_modified = seq_to_copy * line.freq
