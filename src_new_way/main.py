@@ -19,11 +19,11 @@ def create_sim_bam(ref_genome_fasta: str) -> None:
 
 
 if __name__ == "__main__":
+    start_time = time.time()
     ref_genome_fasta = "reference_genome/ref_genome.fa"
     create_sim_bam(ref_genome_fasta)
-    start_time = time.time()
     stats = Stats("train_sim/total.bam", output_folder="sim")
     df_with_stats = stats.generate_stats()
-    print(f"Time elapsed with bedtools:  {time.time() - start_time}")
     stats.combine_into_one_big_file("train_bed/total.bed")
     train_data("stats/sim/combined.csv")
+    print(f"Time elapsed:  {time.time() - start_time}")
