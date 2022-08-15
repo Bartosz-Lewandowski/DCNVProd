@@ -1,5 +1,5 @@
-import os
 import time
+from subprocess import call
 
 from CNV_generator import CNVGenerator
 from generate_features import Stats
@@ -13,9 +13,9 @@ def create_sim_bam(ref_genome_fasta: str) -> None:
     fasta_modified = CNV.modify_fasta_file(total)
     sim_reads = SimReads(fasta_modified, 20)
     r1, r2 = sim_reads.sim_reads_genome()
-    os.system(f"bwa index {ref_genome_fasta}")
+    call(f"bwa index {ref_genome_fasta}", shell=True)
     bwa_command = f"bwa mem -t 8 {ref_genome_fasta} {r1} {r2} | samtools view -Shb - | samtools sort - > train_sim/total.bam"
-    os.system(bwa_command)
+    call(bwa_command, shell=True)
 
 
 if __name__ == "__main__":
