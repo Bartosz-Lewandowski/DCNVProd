@@ -1,6 +1,6 @@
 import os
 import time
-from multiprocessing import Process
+from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
@@ -16,24 +16,14 @@ class Stats:
         pysam.index(self.bam_file)
         Path(self.output_folder).mkdir(parents=True, exist_ok=True)
 
-    def generate_stats(
-        self, output_file: str = "stats_windows", window_size: int = 50, step: int = 50
-    ) -> pd.DataFrame:
+    def generate_stats(self, window_size: int = 50, step: int = 50) -> pd.DataFrame:
         with pysam.AlignmentFile(self.bam_file, "rb", threads=8) as bam:
             refname = bam.references
             seqlen = bam.lengths
 
-        processes = []
-        for i in range(len(refname)):
-            p = Process(
-                target=self.get_features,
-                args=(refname[i], seqlen[i], window_size, step, output_file),
-            )
-            processes.append(p)
-            p.start()
-
-        for p in processes:
-            p.join()
+        with Pool(processes=10) as p:
+            arg = [(ref, seq, window_size, step) for ref, seq in zip(refname, seqlen)]
+            p.map(self.get_features, arg)
 
     def combine_into_one_big_file(self, target_file: str) -> pd.DataFrame:
         isExist: bool = os.path.exists(f"{self.output_folder}/combined.csv")
@@ -49,8 +39,15 @@ class Stats:
         df.to_csv(f"{self.output_folder}/combined.csv", index=False)
 
     def get_features(
-        self, refname: str, seqlen: int, window_size: int, step: int, output_file: str
+        self,
+        args: tuple[str, int, int, int],
     ) -> pd.DataFrame:
+        print(args)
+        refname = args[0]
+        seqlen = args[1]
+        window_size = args[2]
+        step = args[3]
+
         out_np = [
             [
                 "chr",
@@ -85,9 +82,7 @@ class Stats:
             out_np.append(stats)
         print(time.time() - start_time)
         df = pd.DataFrame(out_np[1:], columns=out_np[0])
-        df.to_csv(
-            f"{self.output_folder}/{output_file}_{refname}.csv", sep="\t", index=False
-        )
+        df.to_csv(f"{self.output_folder}/{refname}.csv", sep="\t", index=False)
 
     def _get_cigar_stats(self, chr: str, start: int, end: int):
         with pysam.AlignmentFile(self.bam_file, "rb") as bam:
@@ -99,7 +94,8 @@ class Stats:
             )
         if isinstance(cigar, float):
             cigar = [0 for _ in range(11)]
-        return [cigar[1], cigar[2], cigar[4], cigar[5], cigar[10]]
+        # return [cigar[1], cigar[2], cigar[4], cigar[5], cigar[10]]
+        return cigar
 
     def _calc_stats(self, chr: str, start: int, end: int) -> pd.DataFrame:
         with pysam.AlignmentFile(self.bam_file, "rb", threads=8) as bam:
