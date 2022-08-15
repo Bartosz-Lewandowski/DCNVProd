@@ -212,7 +212,7 @@ class CNVGenerator:
 
     def __generate_coords(self, fasta_file) -> np.array:
         len_fasta: int = len(fasta_file.seq)
-        max_cnv_length = 1000
+        max_cnv_length = 1000000
         cnv_count = int(
             (len_fasta / max_cnv_length) / 2
         )  # number of cnv that can fit in data devided by two because there are two types of cnv (duplications and deletions)
