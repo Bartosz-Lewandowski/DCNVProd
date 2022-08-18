@@ -1,3 +1,4 @@
+import gc
 import os
 from subprocess import call
 
@@ -10,10 +11,11 @@ class SimReads:
         self,
         fasta_file: str,
         cov: int,
-        cpu: int = 8,
+        cpu: int = 10,
         model: str = "novaseq",
         pathout: str = "train_sim/",
     ) -> None:
+        gc.collect()
         models = ["novaseq", "hiseq", "miseq"]
         if model in models:
             self.model = model
