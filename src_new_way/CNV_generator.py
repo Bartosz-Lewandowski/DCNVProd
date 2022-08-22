@@ -20,9 +20,12 @@ class CNVGenerator:
         pathout: folder where to store output files
     """
 
-    def __init__(self, fasta_file: str, pathout: str = "train_bed/") -> None:
+    def __init__(
+        self, fasta_file: str, window_size, pathout: str = "train_bed/"
+    ) -> None:
         self.fasta_file = fasta_file
         self.pathout = pathout
+        self.window_size = window_size
         isExist: bool = os.path.exists(self.pathout)
         if not isExist:
             os.makedirs(self.pathout)
@@ -45,9 +48,13 @@ class CNVGenerator:
     def create_total_windows(self, total_bedtool, chr_info):
         chr_info_bed = BedFormat_to_BedTool(chr_info)
         os.makedirs("sim_target/", exist_ok=True)
-        BedTool.window_maker(chr_info_bed, b=total_bedtool, w=49, s=50, i="src").saveas(
-            "sim_target/sim_target.csv"
-        )
+        BedTool.window_maker(
+            chr_info_bed,
+            b=total_bedtool,
+            w=self.window_size - 1,
+            s=self.window_size,
+            i="src",
+        ).saveas("sim_target/sim_target.csv")
 
     def clean_bed_dup_del(self) -> tuple[BedTool, BedTool, np.array]:
         dup, dele, chr_info = self._create_bed_with_coords()
@@ -81,7 +88,7 @@ class CNVGenerator:
         print("creating normal seq")
         chr_info_bed = BedFormat_to_BedTool(chr_info)
         print("window maker")
-        normal = BedTool().window_maker(chr_info_bed, w=50)
+        normal = BedTool().window_maker(chr_info_bed, w=self.window_size)
         print("dup dele")
         dup_bedtools = BedFormat_to_BedTool(dup).saveas(f"{self.pathout}dup.bed")
         dele_bedtools = BedFormat_to_BedTool(dele).saveas(f"{self.pathout}del.bed")
@@ -161,7 +168,7 @@ class CNVGenerator:
         for i in lenghts:
             wrong_cnv_coords = True
             while wrong_cnv_coords:
-                start = random.randrange(1, len(fasta.seq) - i, step=50)
+                start = random.randrange(1, len(fasta.seq) - i, step=self.window_size)
                 stop = start + i
                 if starts:
                     if self.__check_overlaping(
@@ -205,12 +212,15 @@ class CNVGenerator:
             (len_fasta / max_cnv_length) / 2
         )  # number of cnv that can fit in data devided by two because there are two types of cnv (duplications and deletions)
         lenghts: list = sorted(
-            [random.randrange(50, max_cnv_length, step=50) for _ in range(cnv_count)],
+            [
+                random.randrange(
+                    self.window_size, max_cnv_length, step=self.window_size
+                )
+                for _ in range(cnv_count)
+            ],
             reverse=True,
         )
         # dodać tutaj test -> assert, że suma tych dwóch list będzie mniejsza od długości całego genomu
-        # he = (np.sum(dup_lengths) + np.sum(del_lengths))/len_fasta
-        # print(f"Duplikacje i delecje stanowią {he}% całego genomu")
         start, end = self._find_CNV_windows(fasta_file, lenghts)
         ids = [fasta_file.id] * cnv_count
         return np.array([BedFormat(id, st, en) for id, st, en in zip(ids, start, end)])
