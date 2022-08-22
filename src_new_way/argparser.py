@@ -26,39 +26,6 @@ CHRS = [
 def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-sim",
-        "--prepare_sim_data",
-        action="store_true",
-        dest="sim",
-        help="Simulate bam file, create features and prepare data for ML algorithm",
-        required=False,
-        default=False,
-    )
-    parser.add_argument(
-        "-real",
-        "--prepare_real_data",
-        action="store_true",
-        dest="real",
-        help="Create features for real data and prepare it for ML algorithm",
-        required=False,
-        default=False,
-    )
-    parser.add_argument(
-        "-train",
-        "--train_data",
-        action="store_true",
-        dest="train",
-        help="Train ML algorithms",
-        required=False,
-    )
-    parser.add_argument(
-        "-predict" "--predict",
-        type=str,
-        dest="predict",
-        help="File to predict data on",
-        required=False,
-    )
-    parser.add_argument(
         "-cpus",
         type=int,
         dest="cpus",
@@ -85,21 +52,56 @@ def arg_parser():
         default="1",
         action="store",
     )
-    parser.add_argument(
-        "-new",
-        "--new_data",
-        help="Create new simulated data and compute all features again. By default data is taken from GCP bucket.",
-        dest="new",
-        action="store_true",
-        default=False,
-        required=False,
+    subparsers = parser.add_subparsers(dest="command")
+    sim = subparsers.add_parser(
+        "sim",
+        help="Simulate data with duplication and deletion and generate features for ML algorithm.",
     )
-    parser.add_argument(
+    real = subparsers.add_parser(
+        "real",
+        help="Prepare target for real data and generate features for ML algorithm.",
+    )
+    train = subparsers.add_parser("train", help="Train ML algorithms.")
+    predict = subparsers.add_parser(
+        "predict", help="Using best model predict data on given file."
+    )
+
+    sim.add_argument(
+        "--new_data",
+        action="store_true",
+        dest="new_data",
+        help="Generate new duplication and deletion coordinates and create BAM file.",
+        required=False,
+        default=False,
+    )
+    sim.add_argument(
+        "--new_features",
+        action="store_true",
+        dest="new_features",
+        help="Calculate new features for simulated data",
+        required=False,
+        default=False,
+    )
+    real.add_argument(
+        "--new_features",
+        action="store_true",
+        dest="new_features",
+        help="Calculate new features for real data",
+        required=False,
+        default=False,
+    )
+    train.add_argument(
         "-EDA",
         help="Perform EDA and save plots.",
         dest="EDA",
         action="store_true",
         default=False,
         required=False,
+    )
+    predict.add_argument(
+        "-file",
+        dest="file",
+        help="Path to file to make predictions",
+        required=True,
     )
     return parser
