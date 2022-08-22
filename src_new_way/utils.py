@@ -43,12 +43,7 @@ def BedFormat_to_BedTool(seq: np.array) -> BedTool:
 
 
 def get_number_of_individuals(file_names: list) -> list:
-    output: list = []
-    for file in file_names:
-        match = re.search(r"Nr\d+", file)
-        if match:
-            match.group().replace("Nr", "")
-    return output
+    return [re.search(r"Nr\d+", file).group().replace("Nr", "") for file in file_names]
 
 
 def download_reference_genom() -> None:
@@ -58,8 +53,7 @@ def download_reference_genom() -> None:
     output_folder = "reference_genome/"
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-
-    text_search = r"Sus_scrofa.Sscrofa11.1.dna.chromosome.[\dXY]?[\d]?.fa.gz"
+    text_search = r"Sus_scrofa.Sscrofa11.1.dna.chromosome.[\d]?[\d]?.fa.gz"
     chrs = set(re.findall(text_search, str(cont)))
     for chr in chrs:
         with requests.get(URL + chr, stream=True) as r:
