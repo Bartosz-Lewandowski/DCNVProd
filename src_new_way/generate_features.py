@@ -66,7 +66,7 @@ class Stats:
         chrs_to_calc = {your_key: all_chrs[your_key] for your_key in chrs}
 
         print(
-            f"Calculating features for chromosoms: {chrs_to_calc.keys()} with lengths {chrs_to_calc.values}"
+            f"Calculating features for chromosoms: {chrs_to_calc.keys()} with lengths {chrs_to_calc.values()}"
         )
         out_columns = [
             [
