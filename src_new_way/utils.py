@@ -7,7 +7,7 @@ import numpy as np
 import requests
 from google.cloud import storage
 from pybedtools import BedTool
-from tqdm.auto import tqdm
+from tqdm.std import tqdm
 
 
 @dataclass
@@ -107,8 +107,10 @@ class GCP:
         # Note `Bucket.blob` differs from `Bucket.get_blob` as it doesn't retrieve
         # any content from Google Cloud Storage. As we don't need additional data,
         # using `Bucket.blob` is preferred here.
-        blob = bucket.blob(source_blob_name)
-        blob.download_to_filename(destination_file_name)
+        blob = bucket.get_blob(source_blob_name)
+        with open(destination_file_name, "wb") as f:
+            with tqdm.wrapattr(f, "write", total=blob.size) as file_obj:
+                storage_client.download_blob_to_file(blob, file_obj)
 
         print(
             "Downloaded storage object {} from bucket {} to local file {}.".format(
