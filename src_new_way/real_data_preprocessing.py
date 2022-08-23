@@ -4,7 +4,6 @@ import re
 import numpy as np
 import pandas as pd
 import pysam
-from numba import jit
 from pybedtools import BedTool
 from utils import BedFormat_to_BedTool, BedTool_to_BedFormat
 
@@ -29,20 +28,10 @@ def bam_file_name(number):
     return f"real_data/cnv-data_wgs_S4389Nr{number}.fixmate.srt.markdup.recal.bam"
 
 
-@jit(nopython=True)
-def numba_e(lines):
-    out = []
-    for line in lines:
-        if line[0].isdigit():
-            x = line.replace("\t", " ")
-            y = x.split(" ")
-            out.append([y[7], y[9], y[10], y[1]])
-    return out
-
-
 class CleanRealTarget:
-    def __init__(self, cpus: int = 8) -> None:
+    def __init__(self, window_size: int, cpus: int = 8) -> None:
         self.cpus = cpus
+        self.window_size = window_size
 
     def combine(self, ind_n: str) -> None:
         pindel = pd.read_csv(
@@ -61,7 +50,6 @@ class CleanRealTarget:
                 for cnv_type in ["dup", "del"]
             ]
         )
-        total = total[total["chr"] == "1"]
         total.drop(["valid"], axis=1, inplace=True)
         os.makedirs("real_data_target/valid_target/", exist_ok=True)
         total.to_csv(
@@ -157,39 +145,38 @@ class CleanRealTarget:
         return np.array(chroms), np.array(start), np.array(end)
 
     def _filter_data(self, data: pd.DataFrame) -> pd.DataFrame:
-        data = data[(data["cnv_len"] < 5000000) & (data["cnv_len"] > 50)]
+        data = data[(data["cnv_len"] < 5000000) & (data["cnv_len"] > self.window_size)]
         data = data[data["support"] > 3]
         return data
 
     def _make_windows(self, ind_n: str) -> None:
-        print("START WINDOWS")
+        print(f"Making windows for {ind_n} individual.")
         bamfile_path = bam_file_name(ind_n)
         if not os.path.exists(bamfile_path + ".bai"):
             pysam.index(bamfile_path, threads=self.cpus)
-        print("AFTER ALIGMENT")
+        print("Perfroming step 1 out of 8")
         with pysam.AlignmentFile(bamfile_path, "rb", threads=self.cpus) as bam:
             refname = bam.references
             seqlen = bam.lengths
-        refname = [sorted(refname)[0]]
-        seqlen = [sorted(seqlen)[0]]
+        chrs = {rname: slen for rname, slen in zip(refname, seqlen)}
         str_out = ""
-        for x, y in zip(refname, seqlen):
+        for x, y in chrs.items():
             str_out += f"{x} 1 {y}\n"
         data_bedtool = BedTool(f"real_data_target/valid_target/{ind_n}.csv")
         genome = BedTool(str_out, from_string=True)
-        print("first windowmaker")
-        normal = BedTool().window_maker(genome, w=50)
-        print("INTERSECT")
+        print("Perfroming step 2 out of 8")
+        normal = BedTool().window_maker(genome, w=self.window_size)
+        print("Perfroming step 3 out of 8")
         normal2 = normal.intersect(data_bedtool, v=True, wa=True).sort().merge()
-        print("FIRST SWITCH")
+        print("Perfroming step 4 out of 8")
         normal2_bedformat = BedTool_to_BedFormat(normal2, short_v=True)
-        print("SWITCH TO BEDFORMAT")
+        print("Perfroming step 5 out of 8")
         data_bedtool_bedformat = BedTool_to_BedFormat(data_bedtool)
-        print("CONCAT")
+        print("Perfroming step 6 out of 8")
         total = np.concatenate((normal2_bedformat, data_bedtool_bedformat), axis=0)
-        print("ANOTHER SWITCH")
+        print("Perfroming step 7 out of 8")
         total_sorted = BedFormat_to_BedTool(total).sort()
-        print("LAST WINDOWMAKER")
-        BedTool.window_maker(genome, b=total_sorted, w=50, s=50, i="src").saveas(
-            f"real_data_target/valid_target/{ind_n}.csv"
-        )
+        print("Perfroming step 8 out of 8")
+        BedTool.window_maker(
+            genome, b=total_sorted, w=self.window_size - 1, s=self.window_size, i="src"
+        ).saveas(f"real_data_target/valid_target/{ind_n}.csv")
