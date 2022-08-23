@@ -41,17 +41,6 @@ def arg_parser():
         required=False,
         default=50,
     )
-    parser.add_argument(
-        "-chr",
-        "--chromosomes",
-        dest="chrs",
-        help=f"Pick chromosomes to build model on. Chromosomes to pick: {CHRS} or 'all' for all of them",
-        nargs="+",
-        choices=CHRS,
-        required=False,
-        default="1",
-        action="store",
-    )
     subparsers = parser.add_subparsers(dest="command")
     sim = subparsers.add_parser(
         "sim",
@@ -82,6 +71,16 @@ def arg_parser():
         required=False,
         default=False,
     )
+    sim.add_argument(
+        "--chr",
+        dest="chrs",
+        help=f"Pick chromosomes to build model on. Chromosomes to pick: {CHRS} or 'all' for all of them",
+        nargs="+",
+        choices=CHRS,
+        required=False,
+        default="1",
+        action="store",
+    )
     real.add_argument(
         "--new_features",
         action="store_true",
@@ -89,6 +88,16 @@ def arg_parser():
         help="Calculate new features for real data",
         required=False,
         default=False,
+    )
+    real.add_argument(
+        "--chr",
+        dest="chrs",
+        help=f"Pick chromosomes to build model on. Chromosomes to pick: {CHRS} or 'all' for all of them",
+        nargs="+",
+        choices=CHRS,
+        required=False,
+        default="1",
+        action="store",
     )
     train.add_argument(
         "-EDA",
