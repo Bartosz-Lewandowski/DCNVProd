@@ -12,3 +12,6 @@ reference_genome/*.fa.*
 /real_data_target
 cnv-detection/
 reference_genome/
+sim_data/
+sim_target/
+plots/
