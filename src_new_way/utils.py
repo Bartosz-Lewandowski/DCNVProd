@@ -67,25 +67,6 @@ class GCP:
     def __init__(self, credential_json) -> None:
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credential_json
 
-    def upload_blob(
-        self, bucket_name: str, source_file_name: str, destination_blob_name: str
-    ) -> None:
-        """Uploads a file to the bucket."""
-        # The ID of your GCS bucket
-        # bucket_name = "your-bucket-name"
-        # The path to your file to upload
-        # source_file_name = "local/path/to/file"
-        # The ID of your GCS object
-        # destination_blob_name = "storage-object-name"
-
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(destination_blob_name)
-
-        blob.upload_from_filename(source_file_name)
-
-        print(f"File {source_file_name} uploaded to {destination_blob_name}.")
-
     def download_blob(
         self, bucket_name: str, source_blob_name: str, destination_file_name: str
     ) -> None:
@@ -132,9 +113,28 @@ class GCP:
                     )
                 )
                 filename = blob.name.replace("/", "_")
-                blob.download_to_filename(
-                    destination_folder_name + filename
-                )  # Download
+                with open(destination_folder_name + filename, "wb") as f:
+                    with tqdm.wrapattr(f, "write", total=blob.size) as file_obj:
+                        storage_client.download_blob_to_file(blob, file_obj)
+
+    def upload_blob(
+        self, bucket_name: str, source_file_name: str, destination_blob_name: str
+    ) -> None:
+        """Uploads a file to the bucket."""
+        # The ID of your GCS bucket
+        # bucket_name = "your-bucket-name"
+        # The path to your file to upload
+        # source_file_name = "local/path/to/file"
+        # The ID of your GCS object
+        # destination_blob_name = "storage-object-name"
+
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(destination_blob_name)
+
+        blob.upload_from_filename(source_file_name)
+
+        print(f"File {source_file_name} uploaded to {destination_blob_name}.")
 
     def upload_folder_blob(
         self, bucket_name: str, source_folder_name: str, destination_blob_name: str
