@@ -25,7 +25,7 @@ def pindel_dup_file_name(number):
 
 
 def bam_file_name(number):
-    return f"real_data/cnv-data_wgs_S4389Nr{number}.fixmate.srt.markdup.recal.bam"
+    return f"real_data/cnv-data_real_data_wgs_S4389Nr{number}.fixmate.srt.markdup.recal.bam"
 
 
 class CleanRealTarget:
