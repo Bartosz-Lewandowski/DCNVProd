@@ -2,7 +2,7 @@ import glob
 import os
 from subprocess import call
 
-from CNV_generator import CNVGenerator
+from cnv_generator import CNVGenerator
 from google.api_core.exceptions import NotFound
 
 from argparser import CHRS, arg_parser
