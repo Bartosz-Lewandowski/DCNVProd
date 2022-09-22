@@ -62,8 +62,7 @@ def arg_parser():
         "--new_data",
         action="store_true",
         dest="new_data",
-        help="""Generate new duplication and deletion 
-                coordinates and create BAM file.""",
+        help="Generate new duplication and deletion coordinates and create BAM file.",
         required=False,
         default=False,
     )

@@ -1,13 +1,10 @@
 import os
 import pickle
-import time
 
 import numpy as np
 import pandas as pd
 from imblearn.under_sampling import RandomUnderSampler
 from lightgbm import LGBMClassifier
-from sklearn.ensemble import ExtraTreesClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     classification_report,
     confusion_matrix,

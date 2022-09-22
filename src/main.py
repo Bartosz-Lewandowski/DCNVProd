@@ -41,8 +41,7 @@ if __name__ == "__main__":
             args.chrs = CHRS[:-1]
         if args.new_data and not args.new_features:
             raise Exception(
-                """Creating new data make sure 
-                    to calculate new features as well!"""
+                "Creating new data make sure to calculate new features as well!"
             )
         if args.new_data:
             create_sim_bam(args.cpus, args.window_size)
