@@ -30,9 +30,9 @@ def plot_count(feature, data, name):
 
 
 def feature_correlation(X):
-    # Using Pearson Correlation
+    # Using Spearman Correlation
     plt.figure(figsize=(12, 12))
-    cor = X.corr().round(2)
+    cor = X.corr(method="spearman").round(2)
     mask = np.triu(np.ones_like(cor, dtype=bool))
     mask = mask[1:, :-1]
     corr = cor.iloc[1:, :-1].copy()
