@@ -30,39 +30,9 @@ class Train:
         train.to_csv("train/sim.csv", index=False)
         test.to_csv("test/sim.csv", index=False)
 
-    def prepare_real(self, train_ind, test_ind) -> None:
-        train = pd.concat(
-            (
-                pd.read_csv(f"stats/{i}/combined.csv", sep=",", dtype={"chr": object})
-                for i in train_ind
-            )
-        )
-        test = pd.concat(
-            (
-                pd.read_csv(f"stats/{i}/combined.csv", sep=",", dtype={"chr": object})
-                for i in test_ind
-            )
-        )
-        if self.eda:
-            plot_count("cnv_type", train, "train_real")
-            plot_count("cnv_type", test, "test_real")
-        train.to_csv("train/real.csv", index=False)
-        test.to_csv("test/real.csv", index=False)
-
-    def load_train_files(self, real_weight, sim_weight):
+    def load_train_files(self):
         sim = pd.read_csv("train/sim.csv", sep=",", dtype={"chr": object})
-        sim["data_type"] = sim_weight
-        real = pd.read_csv("train/real.csv", sep=",", dtype={"chr": object})
-        real["data_type"] = real_weight
-        df = pd.concat([sim, real])
-        return df
-
-    def load_test_real_files(self, lbl_e):
-        df_test_real = pd.read_csv("test/real.csv", sep=",", dtype={"chr": object})
-        X_test_real = df_test_real.drop(["chr", "start", "end", "cnv_type"], axis=1)
-        df_test_real["cnv_type"] = lbl_e.transform(df_test_real["cnv_type"])
-        y_test_real = df_test_real["cnv_type"]
-        return X_test_real, y_test_real
+        return sim
 
     def load_test_sim_files(self, lbl_e):
         df_test_sim = pd.read_csv("test/sim.csv", sep=",", dtype={"chr": object})
@@ -72,16 +42,14 @@ class Train:
         return X_test_sim, y_test_sim
 
     def train(self):
-        df = self.load_train_files(1, 5)
+        df = self.load_train_files()
         lbl_e = LabelEncoder()
         df["cnv_type"] = lbl_e.fit_transform(df["cnv_type"])
-        X = df.drop(["chr", "start", "end", "cnv_type", "data_type"], axis=1)
+        X = df.drop(["chr", "start", "end", "cnv_type"], axis=1)
         y = df["cnv_type"]
         if self.eda:
             self.perform_eda()
         X_res, y_res, res_count = self.undersample(X, y)
-        sample_weights = X_res["data_type"]
-        X_res.drop(["data_type"], axis=1, inplace=True)
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X_res)
         class_weights = {
@@ -90,9 +58,7 @@ class Train:
             2: 1 / res_count[2],
         }
         X_test_sim, y_test_sim = self.load_test_sim_files(lbl_e)
-        X_test_real, y_test_real = self.load_test_real_files(lbl_e)
-        model = self.fit_lgb(X_scaled, y_res, class_weights, sample_weights)
-        self.evaluate(model, X_test_real, y_test_real, scaler, "REAL")
+        model = self.fit_lgb(X_scaled, y_res, class_weights)
         self.evaluate(model, X_test_sim, y_test_sim, scaler, "SIM")
         os.makedirs("model", exist_ok=True)
         pickle.dump(model, "model/best_model")

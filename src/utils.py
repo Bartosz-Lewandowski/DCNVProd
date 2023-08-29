@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 import numpy as np
 import requests
-from google.cloud import storage
 from pybedtools import BedTool
 from tqdm.std import tqdm
 
@@ -46,8 +45,13 @@ def BedFormat_to_BedTool(seq: np.array) -> BedTool:
     return bedfile
 
 
-def get_number_of_individuals(file_names: list) -> list:
-    return [re.search(r"Nr\d+", file).group().replace("Nr", "") for file in file_names]
+def get_number_of_individuals(file_names: list[str]) -> list:
+    output = []
+    for file in file_names:
+        file_pattern = re.search(r"Nr\d+", file)
+        assert file_pattern is not None
+        output.append(file_pattern.group().replace("Nr", ""))
+    return output
 
 
 def download_reference_genom() -> None:
@@ -65,100 +69,3 @@ def download_reference_genom() -> None:
             with tqdm.wrapattr(r.raw, "read", total=total_length, desc="") as raw:
                 with open(output_folder + chr, "wb") as output:
                     shutil.copyfileobj(raw, output)
-
-
-class GCP:
-    def __init__(self, credential_json) -> None:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credential_json
-
-    def download_blob(
-        self,
-        bucket_name: str,
-        source_blob_name: str,
-        destination_file_name: str,
-    ) -> None:
-        """Downloads a blob from the bucket."""
-        # The ID of your GCS bucket
-        # bucket_name = "your-bucket-name"
-
-        # The ID of your GCS object
-        # source_blob_name = "storage-object-name"
-
-        # The path to which the file should be downloaded
-        # destination_file_name = "local/path/to/file"
-
-        storage_client = storage.Client()
-
-        bucket = storage_client.bucket(bucket_name)
-
-        # Construct a client side representation of a blob.
-        # Note `Bucket.blob` differs from `Bucket.get_blob` as it doesn't retrieve
-        # any content from Google Cloud Storage. As we don't need additional data,
-        # using `Bucket.blob` is preferred here.
-        blob = bucket.get_blob(source_blob_name)
-        with open(destination_file_name, "wb") as f:
-            with tqdm.wrapattr(f, "write", total=blob.size) as file_obj:
-                storage_client.download_blob_to_file(blob, file_obj)
-
-        print(
-            "Downloaded storage object {} from bucket {} to local file {}.".format(
-                source_blob_name, bucket_name, destination_file_name
-            )
-        )
-
-    def download_folder_blob(
-        self,
-        bucket_name: str,
-        source_blob_name: str,
-        destination_folder_name: str,
-    ) -> None:
-        storage_client = storage.Client()
-        bucket = storage_client.get_bucket(bucket_name)
-        blobs = bucket.list_blobs(prefix=source_blob_name)  # Get list of files
-        for blob in blobs:
-            if blob.size > 0:
-                print(
-                    "Downloading storage object {} from bucket {} to local folder {}.".format(
-                        source_blob_name, bucket_name, destination_folder_name
-                    )
-                )
-                filename = blob.name.replace("/", "_")
-                with open(destination_folder_name + filename, "wb") as f:
-                    with tqdm.wrapattr(f, "write", total=blob.size) as file_obj:
-                        storage_client.download_blob_to_file(blob, file_obj)
-
-    def upload_blob(
-        self,
-        bucket_name: str,
-        source_file_name: str,
-        destination_blob_name: str,
-    ) -> None:
-        """Uploads a file to the bucket."""
-        # The ID of your GCS bucket
-        # bucket_name = "your-bucket-name"
-        # The path to your file to upload
-        # source_file_name = "local/path/to/file"
-        # The ID of your GCS object
-        # destination_blob_name = "storage-object-name"
-
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(destination_blob_name)
-
-        blob.upload_from_filename(source_file_name)
-
-        print(f"File {source_file_name} uploaded to {destination_blob_name}.")
-
-    def upload_folder_blob(
-        self,
-        bucket_name: str,
-        source_folder_name: str,
-        destination_blob_name: str,
-    ) -> None:
-        storage_client = storage.Client()
-        bucket = storage_client.get_bucket(bucket_name)
-        blob = bucket.blob(destination_blob_name)
-        files_in_folder = os.listdir(source_folder_name)
-        for file in files_in_folder:
-            print(f"File {file} uploaded to {destination_blob_name}.")
-            blob.upload_from_filename(file)
