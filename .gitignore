@@ -11,8 +11,10 @@ reference_genome/*.fa.*
 /stats
 /real_data
 /real_data_target
-cnv-detection/
+cnv-detection*
 reference_genome/
 sim_data/
 sim_target/
 plots/
+.mypy_cache/
+*env*
