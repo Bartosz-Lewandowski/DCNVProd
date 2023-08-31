@@ -41,20 +41,10 @@ def arg_parser():
         required=False,
         default=50,
     )
-    parser.add_argument(
-        "-GCP",
-        dest="GCP",
-        help="""GCP key file with credentials to
-                 upload and download files.""",
-    )
     subparsers = parser.add_subparsers(dest="command")
     sim = subparsers.add_parser(
         "sim",
         help="Simulate data with duplication and deletion and generate features for ML algorithm.",
-    )
-    real = subparsers.add_parser(
-        "real",
-        help="Prepare target for real data and generate features for ML algorithm.",
     )
     train = subparsers.add_parser("train", help="Train ML algorithms.")
 
@@ -75,24 +65,6 @@ def arg_parser():
         default=False,
     )
     sim.add_argument(
-        "--chr",
-        dest="chrs",
-        help=f"Pick chromosomes to build model on. Chromosomes to pick: {CHRS} or 'all' for all of them",
-        nargs="+",
-        choices=CHRS,
-        required=False,
-        default="1",
-        action="store",
-    )
-    real.add_argument(
-        "--new_features",
-        action="store_true",
-        dest="new_features",
-        help="Calculate new features for real data",
-        required=False,
-        default=False,
-    )
-    real.add_argument(
         "--chr",
         dest="chrs",
         help=f"Pick chromosomes to build model on. Chromosomes to pick: {CHRS} or 'all' for all of them",

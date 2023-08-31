@@ -12,7 +12,7 @@ from sklearn.metrics import (
 )
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
-from plots import plot_count
+from .plots import plot_count
 
 
 class Train:

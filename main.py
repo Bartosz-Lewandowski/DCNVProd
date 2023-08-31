@@ -1,4 +1,5 @@
 import glob
+import logging
 import os
 from subprocess import call
 
@@ -7,12 +8,20 @@ from src.cnv_generator import CNVGenerator
 from src.generate_features import Stats
 from src.sim_reads import SimReads
 from src.train import Train
-from src.utils import download_reference_genom, get_number_of_individuals
+from src.utils import (
+    combine_and_cleanup_reference_genome,
+    download_reference_genome,
+    get_number_of_individuals,
+)
+
+logging.basicConfig(format="%(asctime)s : %(message)s", level=logging.WARNING)
 
 
-def create_sim_bam(cpus: int, window_size: int) -> None:
-    download_reference_genom()
-    call("src/combine_ref_gens.sh", shell=True)
+def create_sim_bam(chrs: list, cpus: int, window_size: int) -> None:
+    download_reference_genome(chrs)
+    combine_and_cleanup_reference_genome(
+        "reference_genome", "reference_genome/ref_genome.fa"
+    )
     ref_genome_fasta = "reference_genome/ref_genome.fa"
     CNV = CNVGenerator(ref_genome_fasta, window_size)
     total = CNV.generate_cnv()
@@ -35,12 +44,13 @@ if __name__ == "__main__":
     if args.command == "sim":
         if args.chrs == ["all"]:
             args.chrs = CHRS[:-1]
+
         if args.new_data and not args.new_features:
-            raise Exception(
-                "Creating new data make sure to calculate new features as well!"
+            create_sim_bam(args.chrs, args.cpus, args.window_size)
+            logging.warning(
+                "WARNING##: You need to create new features aswell, make sure to run with --new_features flag."
             )
-        if args.new_data:
-            create_sim_bam(args.cpus, args.window_size)
+
         if args.new_features:
             print("##Creating features for simulated data...")
             stats = Stats("sim_data/sim_data.bam", output_folder="sim", cpus=args.cpus)

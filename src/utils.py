@@ -1,3 +1,4 @@
+import gzip
 import os
 import re
 import shutil
@@ -54,18 +55,43 @@ def get_number_of_individuals(file_names: list[str]) -> list:
     return output
 
 
-def download_reference_genom() -> None:
+def download_reference_genome(
+    chrs: list, output_folder: str = "reference_genome"
+) -> None:
+    """Download reference genome from Ensembl.
+    Save it in reference_genome folder.
+    """
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
     URL = "http://ftp.ensembl.org/pub/release-107/fasta/sus_scrofa/dna/"
     page = requests.get(URL)
     cont = page.content
-    output_folder = "reference_genome/"
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-    text_search = r"Sus_scrofa.Sscrofa11.1.dna.chromosome.[\d]?[\d]?.fa.gz"
-    chrs = set(re.findall(text_search, str(cont)))
+
+    texts_search = [
+        f"Sus_scrofa.Sscrofa11.1.dna.chromosome.{chr}.fa.gz" for chr in chrs
+    ]  # find all files with chromosomes from 1 to 18 without X and Y
+    try:
+        chrs = [re.findall(text_search, str(cont))[0] for text_search in texts_search]
+    except IndexError:
+        raise IndexError(
+            "Chromosome not found. Check if the chromosome number is correct."
+        )
     for chr in chrs:
         with requests.get(URL + chr, stream=True) as r:
             total_length = int(r.headers.get("Content-Length"))
             with tqdm.wrapattr(r.raw, "read", total=total_length, desc="") as raw:
-                with open(output_folder + chr, "wb") as output:
+                with open(output_folder + "/" + chr, "wb") as output:
                     shutil.copyfileobj(raw, output)
+
+
+def combine_and_cleanup_reference_genome(input_folder, output_file):
+    with open(output_file, "wb") as out_f:
+        for filename in os.listdir(input_folder):
+            if filename.endswith(".gz"):
+                with gzip.open(os.path.join(input_folder, filename), "rb") as in_f:
+                    out_f.write(in_f.read())
+    # Clean up the .gz files
+    for filename in os.listdir(input_folder):
+        if filename.endswith(".fa.gz"):
+            os.remove(os.path.join(input_folder, filename))

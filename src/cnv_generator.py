@@ -7,7 +7,7 @@ from Bio import SeqIO
 from pybedtools import BedTool
 from tqdm import tqdm
 
-from utils import BedFormat, BedFormat_to_BedTool, BedTool_to_BedFormat
+from .utils import BedFormat, BedFormat_to_BedTool, BedTool_to_BedFormat
 
 
 class CNVGenerator:
