@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 from collections import Counter
@@ -18,33 +19,112 @@ class CNVGenerator:
 
     Args:
         fasta_file: reference genome in fasta format
+        window_size: size of genomic window for CNV's
         pathout: folder where to store output files
     """
 
     def __init__(
-        self, fasta_file: str, window_size, pathout: str = "train_bed/"
+        self, fasta_file: str, window_size: int, pathout: str = "train_bed/"
     ) -> None:
         self.fasta_file = fasta_file
         self.pathout = pathout
         self.window_size = window_size
-        isExist: bool = os.path.exists(self.pathout)
-        if not isExist:
+        if not os.path.exists(self.pathout):
             os.makedirs(self.pathout)
         fasta = SeqIO.parse(open(self.fasta_file), "fasta")
         self.num_of_chroms: int = len(tuple(fasta))
 
     def generate_cnv(self) -> BedFormat:
-        """_summary_
+        """
+        Main method to generate CNV's.
+        First it creates BedFormat objects with coordinates of CNV's.
+        Then it intersect duplications and deletions to avoid overlapping.
+        Then it generates frequencies for duplications and deletions.
+        Then it creates normal sequence without CNV's.
+        At the end it creates total file with duplications, deletions and normal sequence.
 
         Returns:
-            BedFormat: _description_
+            BedFormat: BedFormat object with all CNV's
         """
-        dup, dele, chr_info = self.clean_bed_dup_del()
+        dup, dele, chr_info = self._clean_bed_dup_del()
         dup_freq, dele_freq = self.generate_freq(dup, dele)
         normal = self.bedfile_with_normal_seq(dup_freq, dele_freq, chr_info)
         total, total_bedtool = self.create_total_bed(dup_freq, dele_freq, normal)
         self.create_total_windows(total_bedtool, chr_info)
         return total
+
+    def modify_fasta_file(self, total_file: np.array) -> str:
+        """
+        Method to modify fasta file.
+        It generates fasta file with CNV's.
+        TODO: correct coordinates after duplications and deletions.
+
+        Args:
+            total_file: BedFormat object with all CNV's
+
+        Returns:
+            str: path to fasta file with CNV's
+        """
+        fasta_original = {
+            fasta.id: fasta.seq for fasta in SeqIO.parse(open(self.fasta_file), "fasta")
+        }
+        fasta_modified = {
+            fasta.id: "" for fasta in SeqIO.parse(open(self.fasta_file), "fasta")
+        }
+        for line in tqdm(total_file, total=len(total_file)):
+            if line.cnv_type == "del":
+                continue
+            elif line.cnv_type == "normal":
+                fasta_modified[line.chr] += fasta_original[line.chr][
+                    line.start : line.end
+                ]
+            elif line.cnv_type == "dup":
+                seq_to_copy = fasta_original[line.chr][line.start : line.end]
+                str_modified = seq_to_copy * line.freq
+                fasta_modified[line.chr] += str_modified
+
+        return self._save_fasta_CNV(fasta_modified)
+
+    def _clean_bed_dup_del(self) -> tuple[BedTool, BedTool, np.array]:
+        """
+        Method to clean bed files.
+        It sorts and merges duplications and deletions.
+        Then it intersects duplications and deletions to avoid overlapping.
+
+
+        Returns:
+            tuple[BedTool, BedTool, np.array]: Returns duplications, deletions and chromosome info
+        """
+        dup, dele, chr_info = self._create_bed_with_coords()
+        logging.info("Sorting and merging deletions")
+        dele_merged = self._cnv_sort_and_merge(dele)
+        logging.info("Sorting and merging duplications")
+        dup_merged = self._cnv_sort_and_merge(dup)
+        logging.info("Intersecting duplications and deletions")
+        dup_intersect, dele_intersect = self._cnv_intersect(dup_merged, dele_merged)
+        return dup_intersect, dele_intersect, chr_info
+
+    def _create_bed_with_coords(
+        self,
+    ) -> tuple[np.array, np.array, np.array]:
+        """
+        Method to create bed files with coordinates of CNV's using SeqIO.
+
+        Returns:
+            tuple[np.array, np.array, np.array]: Returns duplications, deletions and chromosome info
+        """
+        dup = np.array([])
+        dele = np.array([])
+        chr_info = np.array([])
+        logging.info("Creating bed files with coordinates of CNV's")
+        for chr in tqdm(
+            SeqIO.parse(open(self.fasta_file), "fasta"), total=self.num_of_chroms
+        ):
+            dup = np.append(dup, np.array([self.__generate_coords(chr)]))
+            dele = np.append(dele, np.array([self.__generate_coords(chr)]))
+            chr_info = np.append(chr_info, np.array([self.__chromosome_info(chr)]))
+
+        return dup, dele, chr_info
 
     def create_total_windows(self, total_bedtool, chr_info):
         chr_info_bed = BedFormat_to_BedTool(chr_info)
@@ -57,26 +137,19 @@ class CNVGenerator:
             i="src",
         ).saveas("sim_target/sim_target.csv")
 
-    def clean_bed_dup_del(self) -> tuple[BedTool, BedTool, np.array]:
-        dup, dele, chr_info = self._create_bed_with_coords()
-        print("Sortking and merging dele")
-        dele_merged = self._cnv_sort_and_merge(dele)
-        print("sorting and merging dup")
-        dup_merged = self._cnv_sort_and_merge(dup)
-        print("INTERSECTING")
-        dup_intersect, dele_intersect = self._cnv_intersect(dup_merged, dele_merged)
-        return dup_intersect, dele_intersect, chr_info
-
     def generate_freq(self, dup: np.array, dele: np.array) -> tuple[np.array, np.array]:
-        """Method to generate frequencies.
+        """
+        Method to generate frequencies for duplications and deletions.
+        It generates random frequencies for duplications and deletions.
+        Frequencies are for duplications from 2 to 10 and for deletions 0.
+        They are responsible for how many times CNV is repeated.
 
         Args:
-            dup (np.array): array with BedFromat as values from intersect.
-            dele (np.array): array with BedFromat as values from intersect.
+            dup: BedFormat object with duplications
+            dele: BedFormat object with deletions
 
         Returns:
-            tuple[np.array, np.array]: Returns same dup and dele
-                                        object, but with frequencies
+            tuple[np.array, np.array]: tuple of BedFormat objects with duplications and deletions
         """
         print("generating dup freq")
         dup_with_freq: np.array = self._create_dup_freqs(dup)
@@ -148,68 +221,20 @@ class CNVGenerator:
         dele_intersect = dele.intersect(dup, wa=True, v=True)
         return dup_intersect, dele_intersect
 
-    def _create_bed_with_coords(
-        self,
-    ) -> tuple[np.array, np.array, np.array]:
-        dup = np.array([])
-        dele = np.array([])
-        chr_info = np.array([])
-        print("Creating bed objects with coordinates of cnv")
-        for chr in tqdm(
-            SeqIO.parse(open(self.fasta_file), "fasta"), total=self.num_of_chroms
-        ):
-            dup = np.append(dup, np.array([self.__generate_coords(chr)]))
-            dele = np.append(dele, np.array([self.__generate_coords(chr)]))
-            chr_info = np.append(chr_info, np.array([self.__chromosome_info(chr)]))
+    def __generate_coords(self, chr, max_cnv_length: int = 1000000) -> np.array:
+        """
+        Method to generate coordinates of CNV's.
+        It generates random coordinates of CNV's and checks if they are overlapping.
+        If they are overlapping it generates new coordinates.
 
-        return dup, dele, chr_info
+        Args:
+            chr: reference chromosome in fasta format
+            max_cnv_length: maximum length of CNV's
 
-    def _find_CNV_windows(self, fasta, lenghts: list) -> tuple[list[int], list[int]]:
-        starts: list = []
-        ends: list = []
-        for i in lenghts:
-            wrong_cnv_coords = True
-            while wrong_cnv_coords:
-                start = random.randrange(1, len(fasta.seq) - i, step=self.window_size)
-                stop = start + i
-                if starts:
-                    if self.__check_overlaping(
-                        start, stop, starts, ends
-                    ) and self.__check_occur(fasta, start, stop):
-                        wrong_cnv_coords = False
-                else:
-                    if self.__check_occur(fasta, start, stop):
-                        wrong_cnv_coords = False
-            starts.append(start)
-            ends.append(stop)
-        return starts, ends
-
-    def __check_occur(self, fasta, start: int, stop: int) -> bool:
-        if self.__get_N_percentage(fasta.seq[start:stop]) < 0.7:
-            return True
-        else:
-            return False
-
-    def __check_overlaping(
-        self, start: int, stop: int, starts: list, ends: list
-    ) -> bool:
-        for start_taken, stop_taken in zip(starts, ends):
-            if not (start >= start_taken and start <= stop_taken) or not (
-                stop <= stop_taken and stop >= start_taken
-            ):
-                return True
-            else:
-                return False
-        return False
-
-    def __get_N_percentage(self, seq) -> float:
-        total = len(seq)
-        N_num = Counter(seq).get("N", 0)
-        return N_num / total
-
-    def __generate_coords(self, fasta_file) -> np.array:
-        len_fasta: int = len(fasta_file.seq)
-        max_cnv_length: int = 1000000
+        Returns:
+            np.array: array with BedFormat as values
+        """
+        len_fasta: int = len(chr.seq)
         cnv_count = int((len_fasta / max_cnv_length) / 2)
         # number of cnv that can fit in data devided by
         # two because there are two types of cnv (duplications and deletions)
@@ -222,36 +247,113 @@ class CNVGenerator:
             ],
             reverse=True,
         )
-        start, end = self._find_CNV_windows(fasta_file, lenghts)
-        ids = [fasta_file.id] * cnv_count
+        start, end = self.__find_CNV_windows(chr, lenghts)
+        ids = [chr.id] * cnv_count
         return np.array([BedFormat(id, st, en) for id, st, en in zip(ids, start, end)])
+
+    def __find_CNV_windows(
+        self, chr, lenghts: list, min_cnv_gap: int = 50
+    ) -> tuple[list[int], list[int]]:
+        """
+        Method to find CNV windows.
+        It generates random coordinates of CNV's and checks if they are overlapping.
+        If they are overlapping it generates new coordinates.
+
+        Args:
+            chr: reference chromosome in fasta format
+            lenghts: list of lengths of CNV's
+
+        Returns:
+            tuple[list[int], list[int]]: tuple of lists with start and end coordinates of CNV's
+        """
+        starts: list = []
+        ends: list = []
+        for i in lenghts:
+            wrong_cnv_coords = True
+            while wrong_cnv_coords:
+                start = random.randrange(1, len(chr.seq) - i, step=self.window_size)
+                stop = start + i
+                if starts:
+                    if self.__check_overlaping(
+                        start, stop, starts, ends
+                    ) and self.__check_occur(chr, start, stop):
+                        wrong_cnv_coords = False
+                else:
+                    if self.__check_occur(chr, start, stop):
+                        wrong_cnv_coords = False
+            starts.append(start)
+            ends.append(stop)
+        return starts, ends
+
+    def __check_occur(self, chr, start: int, stop: int) -> bool:
+        """
+        Method to check if there are more than 70% of N's in sequence.
+
+        Args:
+            chr: reference chromosome in fasta format
+            start: start coordinate of CNV
+            stop: stop coordinate of CNV
+
+        Returns:
+            bool: True if there are less than 70% of N's in sequence, False otherwise
+        """
+        if self.__get_N_percentage(chr.seq[start:stop]) < 0.7:
+            return True
+        else:
+            return False
+
+    def __check_overlaping(
+        self, start: int, stop: int, starts: list, ends: list
+    ) -> bool:
+        """
+        Method to check if CNV's are overlapping.
+
+        Args:
+            start: start coordinate of CNV
+            stop: stop coordinate of CNV
+            starts: list of start coordinates of CNV's
+            ends: list of stop coordinates of CNV's
+
+        Returns:
+            bool: True if CNV's are not overlapping, False otherwise
+        """
+        for start_taken, stop_taken in zip(starts, ends):
+            if not (start >= start_taken and start <= stop_taken) or not (
+                stop <= stop_taken and stop >= start_taken
+            ):
+                return True
+            else:
+                return False
+        return False
+
+    def __get_N_percentage(self, seq) -> float:
+        """
+        Method to get percentage of N's in sequence.
+
+        Args:
+            seq: sequence to check
+
+        Returns:
+            float: percentage of N's in sequence
+        """
+        total = len(seq)
+        N_num = Counter(seq).get("N", 0)
+        return N_num / total
 
     def __chromosome_info(self, fasta_file) -> np.array:
         len_fasta = len(fasta_file.seq)
         return np.array([BedFormat(fasta_file.id, 1, len_fasta)])
 
-    def modify_fasta_file(self, total_file: np.array) -> str:
-        fasta_original = {
-            fasta.id: fasta.seq for fasta in SeqIO.parse(open(self.fasta_file), "fasta")
-        }
-        fasta_modified = {
-            fasta.id: "" for fasta in SeqIO.parse(open(self.fasta_file), "fasta")
-        }
-        for line in tqdm(total_file, total=len(total_file)):
-            if line.cnv_type == "del":
-                continue
-            elif line.cnv_type == "normal":
-                fasta_modified[line.chr] += fasta_original[line.chr][
-                    line.start : line.end
-                ]
-            elif line.cnv_type == "dup":
-                seq_to_copy = fasta_original[line.chr][line.start : line.end]
-                str_modified = seq_to_copy * line.freq
-                fasta_modified[line.chr] += str_modified
+    def _save_fasta_CNV(self, fasta_modified: dict) -> str:
+        """
+        Method to save fasta file with CNV's.
 
-        return self.save_fasta_CNV(fasta_modified)
+        Args:
+            fasta_modified: dictionary with fasta id as key and fasta sequence as value
 
-    def save_fasta_CNV(self, fasta_modified: dict) -> str:
+        Returns:
+            str: path to fasta file with CNV's
+        """
         fasta_cnv_name = f"{self.pathout}fasta_CNV.fa"
 
         if os.path.exists(fasta_cnv_name):
