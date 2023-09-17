@@ -64,6 +64,24 @@ def download_reference_genome(
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
+    # Check if all files already exist
+    files_exist = all(
+        os.path.exists(
+            os.path.join(
+                output_folder, f"Sus_scrofa.Sscrofa11.1.dna.chromosome.{chr}.fa.gz"
+            )
+        )
+        for chr in chrs
+    )
+
+    if files_exist:
+        user_response = input(
+            "Reference genome files already exist. Do you want to download them again? (y/n): "
+        )
+        if user_response.lower() != "y":
+            print("Skipping download.")
+            return
+
     URL = "http://ftp.ensembl.org/pub/release-107/fasta/sus_scrofa/dna/"
     page = requests.get(URL)
     cont = page.content
@@ -80,7 +98,9 @@ def download_reference_genome(
     for chr in chrs:
         with requests.get(URL + chr, stream=True) as r:
             total_length = int(r.headers.get("Content-Length"))
-            with tqdm.wrapattr(r.raw, "read", total=total_length, desc="") as raw:
+            with tqdm.wrapattr(
+                r.raw, "read", total=total_length, desc="Downloading reference genome"
+            ) as raw:
                 with open(output_folder + "/" + chr, "wb") as output:
                     shutil.copyfileobj(raw, output)
 

@@ -18,19 +18,31 @@ logging.basicConfig(format="%(asctime)s : %(message)s", level=logging.WARNING)
 
 
 def create_sim_bam(chrs: list, cpus: int, window_size: int) -> None:
+    """
+    Creates simulated bam file. First it downloads reference genome, then it creates CNV's and then it simulates reads.
+    At the end it aligns reads to reference genome and creates bam file.
+
+    Args:
+        chrs (list): list of chromosomes to simulate
+        cpus (int): number of cpus to use
+        window_size (int): window size for CNV's
+
+    Returns:
+        None
+    """
     download_reference_genome(chrs)
     combine_and_cleanup_reference_genome(
         "reference_genome", "reference_genome/ref_genome.fa"
     )
     ref_genome_fasta = "reference_genome/ref_genome.fa"
-    CNV = CNVGenerator(ref_genome_fasta, window_size)
-    total = CNV.generate_cnv()
-    fasta_modified = CNV.modify_fasta_file(total)
+    cnv_gen = CNVGenerator(ref_genome_fasta, window_size)
+    total = cnv_gen.generate_cnv()
+    fasta_modified = cnv_gen.modify_fasta_file(total)
     sim_reads = SimReads(fasta_modified, 10, cpu=cpus)
     r1, r2 = sim_reads.sim_reads_genome()
     r1 = "train_sim/10_R1.fastq"
     r2 = "train_sim/10_R2.fastq"
-    call(f"bwa index {ref_genome_fasta}", shell=True)
+    call(f"bwa index {ref_genome_fasta}", shell=True)  # index reference genome
     os.makedirs("sim_data/", exist_ok=True)
     bwa_command = f"bwa mem -t {cpus} {ref_genome_fasta} \
                     {r1} {r2} | samtools view -Shb - | \

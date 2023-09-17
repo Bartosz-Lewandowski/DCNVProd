@@ -4,7 +4,7 @@ import random
 from collections import Counter
 
 import numpy as np
-from Bio import SeqIO
+from Bio import SeqIO, SeqRecord
 from pybedtools import BedTool
 from tqdm import tqdm
 
@@ -118,7 +118,9 @@ class CNVGenerator:
         chr_info = np.array([])
         logging.info("Creating bed files with coordinates of CNV's")
         for chr in tqdm(
-            SeqIO.parse(open(self.fasta_file), "fasta"), total=self.num_of_chroms
+            SeqIO.parse(open(self.fasta_file), "fasta"),
+            total=self.num_of_chroms,
+            desc="Creating bed files",
         ):
             dup = np.append(dup, np.array([self.__generate_coords(chr)]))
             dele = np.append(dele, np.array([self.__generate_coords(chr)]))
@@ -221,7 +223,9 @@ class CNVGenerator:
         dele_intersect = dele.intersect(dup, wa=True, v=True)
         return dup_intersect, dele_intersect
 
-    def __generate_coords(self, chr, max_cnv_length: int = 1000000) -> np.array:
+    def __generate_coords(
+        self, chr: SeqRecord.SeqRecord, max_cnv_length: int = 1000000
+    ) -> np.array:
         """
         Method to generate coordinates of CNV's.
         It generates random coordinates of CNV's and checks if they are overlapping.
@@ -235,9 +239,12 @@ class CNVGenerator:
             np.array: array with BedFormat as values
         """
         len_fasta: int = len(chr.seq)
-        cnv_count = int((len_fasta / max_cnv_length) / 2)
-        # number of cnv that can fit in data devided by
-        # two because there are two types of cnv (duplications and deletions)
+        if self.__max_cnv_lenght_too_large(len_fasta, max_cnv_length):
+            raise Exception("CNV's are longer than maximum length")
+        cnv_count = int(
+            (len_fasta / max_cnv_length) / 2
+        )  # number of cnv that can fit in data devided by two
+        # because there are two types of cnv (duplications and deletions)
         lenghts: list = sorted(
             [
                 random.randrange(
@@ -247,12 +254,53 @@ class CNVGenerator:
             ],
             reverse=True,
         )
+        if self.__too_large_cnvs_number(len_fasta, lenghts, cnv_count):
+            raise Exception(
+                "CNV's are too long, try smaller max_cnv_length or smaller min_cnv_gap"
+            )
+
         start, end = self.__find_CNV_windows(chr, lenghts)
         ids = [chr.id] * cnv_count
         return np.array([BedFormat(id, st, en) for id, st, en in zip(ids, start, end)])
 
+    def __max_cnv_lenght_too_large(self, len_fasta: int, max_cnv_length: int) -> bool:
+        """
+        Method to check if CNV's are not longer than maximum length.
+
+        Args:
+            chr: reference chromosome in fasta format
+            max_cnv_length: maximum length of CNV's
+
+        Returns:
+            bool: True if CNV's are not longer than maximum length, False otherwise
+        """
+        if len_fasta <= max_cnv_length:
+            return True
+        else:
+            return False
+
+    def __too_large_cnvs_number(
+        self, len_fasta: int, lenghts: list, cnv_count: int, min_cnv_gap: int = 50
+    ) -> bool:
+        """
+        Check if all cnv's length can fit in data with min_cnv_gap between them.
+
+        Args:
+            lenghts: list of lengths of cnv's
+            cnv_count: number of cnv's
+            min_cnv_gap: minimum gap between cnv's
+
+        Returns:
+            bool: True if all cnv's can fit in data, False otherwise
+        """
+        total_cnv_length = sum(lenghts)
+        if total_cnv_length + (cnv_count * min_cnv_gap) >= len_fasta:
+            return True
+        else:
+            return False
+
     def __find_CNV_windows(
-        self, chr, lenghts: list, min_cnv_gap: int = 50
+        self, chr: SeqRecord.SeqRecord, lenghts: list, min_cnv_gap: int = 50
     ) -> tuple[list[int], list[int]]:
         """
         Method to find CNV windows.
@@ -270,22 +318,23 @@ class CNVGenerator:
         ends: list = []
         for i in lenghts:
             wrong_cnv_coords = True
+            n = 0
             while wrong_cnv_coords:
                 start = random.randrange(1, len(chr.seq) - i, step=self.window_size)
                 stop = start + i
-                if starts:
-                    if self.__check_overlaping(
-                        start, stop, starts, ends
-                    ) and self.__check_occur(chr, start, stop):
-                        wrong_cnv_coords = False
-                else:
-                    if self.__check_occur(chr, start, stop):
-                        wrong_cnv_coords = False
+                if self.__check_overlaping(
+                    start, stop, starts, ends, min_cnv_gap
+                ) and self.__check_occur(chr, start, stop):
+                    wrong_cnv_coords = False
+
+                n += 1
+                if n > 200:
+                    raise RuntimeError("Could not find CNV coordinates")
             starts.append(start)
             ends.append(stop)
         return starts, ends
 
-    def __check_occur(self, chr, start: int, stop: int) -> bool:
+    def __check_occur(self, chr: SeqRecord.SeqRecord, start: int, stop: int) -> bool:
         """
         Method to check if there are more than 70% of N's in sequence.
 
@@ -297,13 +346,13 @@ class CNVGenerator:
         Returns:
             bool: True if there are less than 70% of N's in sequence, False otherwise
         """
-        if self.__get_N_percentage(chr.seq[start:stop]) < 0.7:
+        if CNVGenerator.__get_N_percentage(chr.seq[start:stop]) < 0.7:
             return True
         else:
             return False
 
     def __check_overlaping(
-        self, start: int, stop: int, starts: list, ends: list
+        self, start: int, stop: int, starts: list, ends: list, min_gap: int
     ) -> bool:
         """
         Method to check if CNV's are overlapping.
@@ -318,15 +367,14 @@ class CNVGenerator:
             bool: True if CNV's are not overlapping, False otherwise
         """
         for start_taken, stop_taken in zip(starts, ends):
-            if not (start >= start_taken and start <= stop_taken) or not (
-                stop <= stop_taken and stop >= start_taken
-            ):
-                return True
+            if (start - stop_taken >= min_gap) or (start_taken - stop >= min_gap):
+                continue  # CNVs are non-overlapping or have a sufficient gap
             else:
-                return False
-        return False
+                return False  # CNVs are overlapping
+        return True  # All CNVs are non-overlapping
 
-    def __get_N_percentage(self, seq) -> float:
+    @staticmethod
+    def __get_N_percentage(seq) -> float:
         """
         Method to get percentage of N's in sequence.
 
