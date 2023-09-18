@@ -2,9 +2,14 @@ import gzip
 import os
 import tempfile
 
+import numpy as np
 import pytest
+from pybedtools import BedTool
 
 from src.utils import (  # Replace with your actual module name
+    BedFormat,
+    BedFormat_to_BedTool,
+    BedTool_to_BedFormat,
     combine_and_cleanup_reference_genome,
     download_reference_genome,
 )
@@ -14,6 +19,48 @@ from src.utils import (  # Replace with your actual module name
 def temp_directory():
     with tempfile.TemporaryDirectory() as temp_dir:
         yield temp_dir
+
+
+@pytest.fixture
+def sample_bedtool():
+    # Create a sample BedTool for testing.
+    bed_string = "chr1 100 200 cnv1 1\nchr2 300 400 cnv2 2\n"
+    return BedTool(bed_string, from_string=True)
+
+
+def test_BedTool_to_BedFormat(sample_bedtool):
+    # Test BedTool_to_BedFormat function
+    bed_formats = BedTool_to_BedFormat(sample_bedtool)
+    assert len(bed_formats) == 2
+    assert isinstance(bed_formats[0], BedFormat)
+    assert bed_formats[0].chr == "chr1"
+    assert bed_formats[0].start == 100
+    assert bed_formats[0].end == 200
+    assert bed_formats[0].cnv_type == "cnv1"
+    assert bed_formats[0].freq == 1
+
+
+def test_BedTool_to_BedFormat_short_v(sample_bedtool):
+    # Test BedTool_to_BedFormat with short_v=True
+    bed_formats = BedTool_to_BedFormat(sample_bedtool, short_v=True)
+    assert len(bed_formats) == 2
+    assert isinstance(bed_formats[0], BedFormat)
+    assert bed_formats[0].chr == "chr1"
+    assert bed_formats[0].start == 100
+    assert bed_formats[0].end == 200
+    assert bed_formats[0].cnv_type == "normal"
+    assert bed_formats[0].freq == 1
+
+
+def test_BedFormat_to_BedTool():
+    # Test BedFormat_to_BedTool function
+    bed_formats = [
+        BedFormat("chr1", 100, 200, "cnv1", 1),
+        BedFormat("chr2", 300, 400, "cnv2", 2),
+    ]
+    bed_tool = BedFormat_to_BedTool(np.array(bed_formats))
+    assert isinstance(bed_tool, BedTool)
+    assert str(bed_tool) == "chr1\t100\t200\tcnv1\t1\nchr2\t300\t400\tcnv2\t2\n"
 
 
 def test_download_first_and_last_chromosomes(temp_directory):
