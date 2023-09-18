@@ -20,15 +20,27 @@ class CNVGenerator:
     Args:
         fasta_file: reference genome in fasta format
         window_size: size of genomic window for CNV's
+        max_cnv_length: maximum length of CNV's
+        min_cnv_gap: minimum gap between CNV's
+        N_percentage: percentage of N's in sequence
         pathout: folder where to store output files
     """
 
     def __init__(
-        self, fasta_file: str, window_size: int, pathout: str = "train_bed/"
+        self,
+        fasta_file: str,
+        window_size: int,
+        max_cnv_length: int,
+        min_cnv_gap: int,
+        N_percentage: float,
+        pathout: str = "train_bed/",
     ) -> None:
         self.fasta_file = fasta_file
         self.pathout = pathout
         self.window_size = window_size
+        self.max_cnv_length = max_cnv_length
+        self.min_cnv_gap = min_cnv_gap
+        self.N_percentage = N_percentage
         if not os.path.exists(self.pathout):
             os.makedirs(self.pathout)
         fasta = SeqIO.parse(open(self.fasta_file), "fasta")
@@ -223,9 +235,7 @@ class CNVGenerator:
         dele_intersect = dele.intersect(dup, wa=True, v=True)
         return dup_intersect, dele_intersect
 
-    def __generate_coords(
-        self, chr: SeqRecord.SeqRecord, max_cnv_length: int = 1000000
-    ) -> np.array:
+    def __generate_coords(self, chr: SeqRecord.SeqRecord) -> np.array:
         """
         Method to generate coordinates of CNV's.
         It generates random coordinates of CNV's and checks if they are overlapping.
@@ -233,22 +243,21 @@ class CNVGenerator:
 
         Args:
             chr: reference chromosome in fasta format
-            max_cnv_length: maximum length of CNV's
 
         Returns:
             np.array: array with BedFormat as values
         """
         len_fasta: int = len(chr.seq)
-        if self.__max_cnv_lenght_too_large(len_fasta, max_cnv_length):
+        if self.__max_cnv_lenght_too_large(len_fasta):
             raise Exception("CNV's are longer than maximum length")
         cnv_count = int(
-            (len_fasta / max_cnv_length) / 2
+            (len_fasta / self.max_cnv_length) / 2
         )  # number of cnv that can fit in data devided by two
         # because there are two types of cnv (duplications and deletions)
         lenghts: list = sorted(
             [
                 random.randrange(
-                    self.window_size, max_cnv_length, step=self.window_size
+                    self.window_size, self.max_cnv_length, step=self.window_size
                 )
                 for _ in range(cnv_count)
             ],
@@ -263,24 +272,23 @@ class CNVGenerator:
         ids = [chr.id] * cnv_count
         return np.array([BedFormat(id, st, en) for id, st, en in zip(ids, start, end)])
 
-    def __max_cnv_lenght_too_large(self, len_fasta: int, max_cnv_length: int) -> bool:
+    def __max_cnv_lenght_too_large(self, len_fasta: int) -> bool:
         """
         Method to check if CNV's are not longer than maximum length.
 
         Args:
             chr: reference chromosome in fasta format
-            max_cnv_length: maximum length of CNV's
 
         Returns:
             bool: True if CNV's are not longer than maximum length, False otherwise
         """
-        if len_fasta <= max_cnv_length:
+        if len_fasta <= self.max_cnv_length:
             return True
         else:
             return False
 
     def __too_large_cnvs_number(
-        self, len_fasta: int, lenghts: list, cnv_count: int, min_cnv_gap: int = 50
+        self, len_fasta: int, lenghts: list, cnv_count: int
     ) -> bool:
         """
         Check if all cnv's length can fit in data with min_cnv_gap between them.
@@ -288,19 +296,18 @@ class CNVGenerator:
         Args:
             lenghts: list of lengths of cnv's
             cnv_count: number of cnv's
-            min_cnv_gap: minimum gap between cnv's
 
         Returns:
             bool: True if all cnv's can fit in data, False otherwise
         """
         total_cnv_length = sum(lenghts)
-        if total_cnv_length + (cnv_count * min_cnv_gap) >= len_fasta:
+        if total_cnv_length + (cnv_count * self.min_cnv_gap) >= len_fasta:
             return True
         else:
             return False
 
     def __find_CNV_windows(
-        self, chr: SeqRecord.SeqRecord, lenghts: list, min_cnv_gap: int = 50
+        self, chr: SeqRecord.SeqRecord, lenghts: list
     ) -> tuple[list[int], list[int]]:
         """
         Method to find CNV windows.
@@ -323,7 +330,7 @@ class CNVGenerator:
                 start = random.randrange(1, len(chr.seq) - i, step=self.window_size)
                 stop = start + i
                 if self.__check_overlaping(
-                    start, stop, starts, ends, min_cnv_gap
+                    start, stop, starts, ends
                 ) and self.__check_occur(chr, start, stop):
                     wrong_cnv_coords = False
 
@@ -346,13 +353,13 @@ class CNVGenerator:
         Returns:
             bool: True if there are less than 70% of N's in sequence, False otherwise
         """
-        if CNVGenerator.__get_N_percentage(chr.seq[start:stop]) < 0.7:
+        if CNVGenerator.__get_N_percentage(chr.seq[start:stop]) < self.N_percentage:
             return True
         else:
             return False
 
     def __check_overlaping(
-        self, start: int, stop: int, starts: list, ends: list, min_gap: int
+        self, start: int, stop: int, starts: list, ends: list
     ) -> bool:
         """
         Method to check if CNV's are overlapping.
@@ -367,7 +374,9 @@ class CNVGenerator:
             bool: True if CNV's are not overlapping, False otherwise
         """
         for start_taken, stop_taken in zip(starts, ends):
-            if (start - stop_taken >= min_gap) or (start_taken - stop >= min_gap):
+            if (start - stop_taken >= self.min_cnv_gap) or (
+                start_taken - stop >= self.min_cnv_gap
+            ):
                 continue  # CNVs are non-overlapping or have a sufficient gap
             else:
                 return False  # CNVs are overlapping

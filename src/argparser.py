@@ -33,14 +33,6 @@ def arg_parser():
         required=False,
         default=10,
     )
-    parser.add_argument(
-        "-w",
-        "--window_size",
-        dest="window_size",
-        help="Genomic window size",
-        required=False,
-        default=50,
-    )
     subparsers = parser.add_subparsers(dest="command")
     sim = subparsers.add_parser(
         "sim",
@@ -73,6 +65,27 @@ def arg_parser():
         required=False,
         default="1",
         action="store",
+    )
+    sim.add_argument(
+        "--window_size",
+        dest="window_size",
+        help="Genomic window size",
+        required=False,
+        default=50,
+    )
+    sim.add_argument(
+        "--min_cnv_gap",
+        dest="min_cnv_gap",
+        help="Minimum gap between CNVs",
+        required=False,
+        default=10,
+    )
+    sim.add_argument(
+        "N_percentage",
+        dest="N_percentage",
+        help="Percentage threshold for N amino acids from which mutation is not created",
+        required=False,
+        default=0.7,
     )
     train.add_argument(
         "-EDA",

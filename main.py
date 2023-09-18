@@ -17,7 +17,14 @@ from src.utils import (
 logging.basicConfig(format="%(asctime)s : %(message)s", level=logging.WARNING)
 
 
-def create_sim_bam(chrs: list, cpus: int, window_size: int) -> None:
+def create_sim_bam(
+    chrs: list,
+    cpus: int,
+    window_size: int,
+    min_cnv_gap: int,
+    max_cnv_length: int,
+    N_percentage: float,
+) -> None:
     """
     Creates simulated bam file. First it downloads reference genome, then it creates CNV's and then it simulates reads.
     At the end it aligns reads to reference genome and creates bam file.
@@ -35,7 +42,9 @@ def create_sim_bam(chrs: list, cpus: int, window_size: int) -> None:
         "reference_genome", "reference_genome/ref_genome.fa"
     )
     ref_genome_fasta = "reference_genome/ref_genome.fa"
-    cnv_gen = CNVGenerator(ref_genome_fasta, window_size)
+    cnv_gen = CNVGenerator(
+        ref_genome_fasta, window_size, max_cnv_length, min_cnv_gap, N_percentage
+    )
     total = cnv_gen.generate_cnv()
     fasta_modified = cnv_gen.modify_fasta_file(total)
     sim_reads = SimReads(fasta_modified, 10, cpu=cpus)
@@ -58,7 +67,14 @@ if __name__ == "__main__":
             args.chrs = CHRS[:-1]
 
         if args.new_data and not args.new_features:
-            create_sim_bam(args.chrs, args.cpus, args.window_size)
+            create_sim_bam(
+                args.chrs,
+                args.cpus,
+                args.window_size,
+                args.min_cnv_gap,
+                args.max_cnv_length,
+                args.N_percentage,
+            )
             logging.warning(
                 "WARNING##: You need to create new features aswell, make sure to run with --new_features flag."
             )
