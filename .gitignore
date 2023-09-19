@@ -19,3 +19,4 @@ plots/
 .mypy_cache/
 *env*
 .coverage*
+.pytest_cache/
