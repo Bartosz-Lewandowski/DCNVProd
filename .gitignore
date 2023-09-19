@@ -20,3 +20,4 @@ plots/
 *env*
 .coverage*
 .pytest_cache/
+train_target/
