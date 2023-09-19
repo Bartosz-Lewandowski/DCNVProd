@@ -14,7 +14,7 @@ from src.utils import (
     get_number_of_individuals,
 )
 
-logging.basicConfig(format="%(asctime)s : %(message)s", level=logging.WARNING)
+logging.basicConfig(format="%(asctime)s : %(message)s", level=logging.INFO)
 
 
 def create_sim_bam(

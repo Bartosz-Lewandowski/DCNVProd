@@ -8,6 +8,7 @@ from Bio import SeqIO, SeqRecord
 from pybedtools import BedTool
 from tqdm import tqdm
 
+from .config import SIM_PATH_OUTPUT, TARGET_DATA_FILE_NAME, TARGET_DATA_PATH
 from .utils import BedFormat, BedFormat_to_BedTool, BedTool_to_BedFormat
 
 
@@ -33,10 +34,11 @@ class CNVGenerator:
         max_cnv_length: int,
         min_cnv_gap: int,
         N_percentage: float,
-        pathout: str = "train_bed/",
     ) -> None:
         self.fasta_file = fasta_file
-        self.pathout = pathout
+        self.pathout = SIM_PATH_OUTPUT
+        self.target_data_path = TARGET_DATA_PATH
+        self.target_data_file_name = TARGET_DATA_FILE_NAME
         self.window_size = window_size
         self.max_cnv_length = max_cnv_length
         self.min_cnv_gap = min_cnv_gap
@@ -56,14 +58,16 @@ class CNVGenerator:
         At the end it creates total file with duplications, deletions and normal sequence.
 
         Returns:
-            BedFormat: BedFormat object with all CNV's
+            BedFormat: BedFormat object with all CNV's and normal sequence
         """
         dup, dele, chr_info = self._clean_bed_dup_del()
-        dup_freq, dele_freq = self.generate_freq(dup, dele)
-        normal = self.bedfile_with_normal_seq(dup_freq, dele_freq, chr_info)
-        total, total_bedtool = self.create_total_bed(dup_freq, dele_freq, normal)
-        self.create_total_windows(total_bedtool, chr_info)
-        return total
+        dup_freq, dele_freq = self._generate_freq(dup, dele)
+        normal = self._bedfile_with_normal_seq(dup_freq, dele_freq, chr_info)
+        total_BedFormat, total_Bedtool = self._create_total_bed(
+            dup_freq, dele_freq, normal
+        )
+        self._create_total_windows(total_Bedtool, chr_info)
+        return total_BedFormat
 
     def modify_fasta_file(self, total_file: np.array) -> str:
         """
@@ -140,18 +144,18 @@ class CNVGenerator:
 
         return dup, dele, chr_info
 
-    def create_total_windows(self, total_bedtool, chr_info):
+    def _create_total_windows(self, total_bedtool, chr_info):
         chr_info_bed = BedFormat_to_BedTool(chr_info)
-        os.makedirs("sim_target/", exist_ok=True)
+        os.makedirs(self.target_data_path, exist_ok=True)
         BedTool.window_maker(
             chr_info_bed,
             b=total_bedtool,
             w=self.window_size - 1,
             s=self.window_size,
             i="src",
-        ).saveas("sim_target/sim_target.csv")
+        ).saveas("/".join([self.target_data_path, self.target_data_file_name]))
 
-    def generate_freq(self, dup: np.array, dele: np.array) -> tuple[np.array, np.array]:
+    def _generate_freq(self, dup: BedTool, dele: BedTool) -> tuple[np.array, np.array]:
         """
         Method to generate frequencies for duplications and deletions.
         It generates random frequencies for duplications and deletions.
@@ -165,29 +169,41 @@ class CNVGenerator:
         Returns:
             tuple[np.array, np.array]: tuple of BedFormat objects with duplications and deletions
         """
-        print("generating dup freq")
+        logging.info("Generating duplications frequencies")
         dup_with_freq: np.array = self._create_dup_freqs(dup)
-        print("generating dele freq")
+        logging.info("Generating deletions frequencies")
         dele_with_freq: np.array = self._create_dele_freqs(dele)
         return dup_with_freq, dele_with_freq
 
-    def bedfile_with_normal_seq(
+    def _bedfile_with_normal_seq(
         self, dup: np.array, dele: np.array, chr_info: np.array
     ) -> np.array:
-        print("creating normal seq")
+        """
+        Method to create normal sequence.
+        It creates normal sequence without CNV's.
+        To do this it uses BedTools to create windows and then intersect duplications and deletions to avoid overlapping.
+        Next it sorts and merges normal sequence.
+        Finally it creates BedFormat object with normal sequence.
+
+        Args:
+            dup: BedFormat object with duplications
+            dele: BedFormat object with deletions
+            chr_info: BedFormat object with chromosome info
+
+        Returns:
+            np.array: BedFormat object with normal sequence
+        """
+        logging.info("Creating normal sequence")
         chr_info_bed = BedFormat_to_BedTool(chr_info)
-        print("window maker")
         normal = BedTool().window_maker(chr_info_bed, w=self.window_size)
-        print("dup dele")
-        dup_bedtools = BedFormat_to_BedTool(dup).saveas(f"{self.pathout}dup.bed")
-        dele_bedtools = BedFormat_to_BedTool(dele).saveas(f"{self.pathout}del.bed")
-        print("normal 2")
+        dup_bedtools = BedFormat_to_BedTool(dup)  # convert to bedtools for intersection
+        dele_bedtools = BedFormat_to_BedTool(dele)
         normal2 = (
             normal.intersect(dup_bedtools, v=True, wa=True)
             .intersect(dele_bedtools, v=True, wa=True)
             .sort()
             .merge()
-        )
+        )  # after this step we have only normal genomic windows without CNV's
         out_normal = np.array([])
         for line in normal2:
             out_normal = np.append(
@@ -195,16 +211,42 @@ class CNVGenerator:
             )
         return out_normal
 
-    def create_total_bed(
+    def _create_total_bed(
         self, dup: np.array, dele: np.array, normal: np.array
-    ) -> np.array:
-        print("creating total file")
+    ) -> tuple[np.array, BedTool]:
+        """
+        Method to create total bed file.
+        It concatenates duplications, deletions and normal sequence.
+        Then it sorts and merges total bed file.
+        Finally it creates BedFormat object with total bed file.
+
+        Args:
+            dup: BedFormat object with duplications
+            dele: BedFormat object with deletions
+            normal: BedFormat object with normal sequence
+
+        Returns:
+            tuple[np.array[BedFormat], BedTool]: tuple of BedFormat and BedTool object with sorted and merged total bed file
+                                                BedFormat is neccessary for next steps like modify fasta file
+                                                BedTool is neccessary for creating windows and save file as target file for training
+        """
+        logging.info("Creating total bed file")
         total = np.concatenate((dup, dele, normal), axis=0)
-        total_sorted = BedFormat_to_BedTool(total).sort()
-        total_BedFormat = BedTool_to_BedFormat(total_sorted)
-        return total_BedFormat, total_sorted
+        total_Bedtool = BedFormat_to_BedTool(total).sort()
+        total_BedFormat = BedTool_to_BedFormat(total_Bedtool)
+        return total_BedFormat, total_Bedtool
 
     def _create_dele_freqs(self, dele: np.array) -> np.array:
+        """
+        Method to create deletions with frequencies.
+        It generates frequencies for deletions which are always 0.
+
+        Args:
+            dele: BedFormat object with deletions
+
+        Returns:
+            np.array: BedFormat object with deletions and frequencies
+        """
         out = np.array([])
         for line in dele:
             out = np.append(
@@ -214,6 +256,20 @@ class CNVGenerator:
         return out
 
     def _create_dup_freqs(self, dup: np.array) -> np.array:
+        """
+        Method to create duplications with frequencies.
+        It generates frequencies for duplications from 2 to 10 with probabilities:
+        2 - 50%
+        3 to 5 - 10%
+        6 to 10 - 5%
+        Frequencies are responsible for how many times CNV is repeated.
+
+        Args:
+            dup: BedFormat object with duplications
+
+        Returns:
+            np.array: BedFormat object with duplications and frequencies
+        """
         out = np.array([])
         for line in dup:
             count = np.random.choice(
@@ -226,11 +282,30 @@ class CNVGenerator:
         return out
 
     def _cnv_sort_and_merge(self, cnv: np.array) -> BedTool:
+        """
+        Method to sort and merge CNV's using BedTools.
+
+        Args:
+            cnv: BedFormat object with CNV's
+
+        Returns:
+            BedTool: BedTool object with sorted and merged CNV's
+        """
         cnv_bed = BedFormat_to_BedTool(cnv)
         cnv_merged = cnv_bed.sort().merge()
         return cnv_merged
 
     def _cnv_intersect(self, dup: BedTool, dele: BedTool) -> tuple[BedTool, BedTool]:
+        """
+        Method to intersect duplications and deletions using BedTools.
+
+        Args:
+            dup: BedTool object with duplications
+            dele: BedTool object with deletions
+
+        Returns:
+            tuple[BedTool, BedTool]: tuple of BedTool objects with duplications and deletions
+        """
         dup_intersect = dup.intersect(dele, wa=True, v=True)
         dele_intersect = dele.intersect(dup, wa=True, v=True)
         return dup_intersect, dele_intersect

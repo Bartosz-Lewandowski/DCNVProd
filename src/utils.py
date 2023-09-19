@@ -19,7 +19,7 @@ class BedFormat:
     freq: int = 1
 
 
-def BedTool_to_BedFormat(bedfile: BedTool, short_v: bool = False) -> list:
+def BedTool_to_BedFormat(bedfile: BedTool, short_v: bool = False) -> np.ndarray:
     out = []
     if short_v:
         return [
@@ -35,7 +35,7 @@ def BedTool_to_BedFormat(bedfile: BedTool, short_v: bool = False) -> list:
                 int(line.score),
             )
         )
-    return out
+    return np.array(out)
 
 
 def BedFormat_to_BedTool(seq: np.array) -> BedTool:
