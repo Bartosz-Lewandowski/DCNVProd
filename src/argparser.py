@@ -74,14 +74,21 @@ def arg_parser():
         default=50,
     )
     sim.add_argument(
+        "--max_cnv_length",
+        dest="max_cnv_length",
+        help="Maximum length of CNV",
+        required=False,
+        default=100000,
+    )
+    sim.add_argument(
         "--min_cnv_gap",
         dest="min_cnv_gap",
         help="Minimum gap between CNVs",
         required=False,
-        default=10,
+        default=50,
     )
     sim.add_argument(
-        "N_percentage",
+        "--n_percentage",
         dest="N_percentage",
         help="Percentage threshold for N amino acids from which mutation is not created",
         required=False,
