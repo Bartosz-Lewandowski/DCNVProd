@@ -21,3 +21,4 @@ plots/
 .coverage*
 .pytest_cache/
 train_target/
+reference_genome.pac
