@@ -71,12 +71,14 @@ def arg_parser():
         dest="window_size",
         help="Genomic window size",
         required=False,
+        type=int,
         default=50,
     )
     sim.add_argument(
         "--max_cnv_length",
         dest="max_cnv_length",
         help="Maximum length of CNV",
+        type=int,
         required=False,
         default=100000,
     )
@@ -84,6 +86,7 @@ def arg_parser():
         "--min_cnv_gap",
         dest="min_cnv_gap",
         help="Minimum gap between CNVs",
+        type=int,
         required=False,
         default=50,
     )
@@ -91,6 +94,7 @@ def arg_parser():
         "--n_percentage",
         dest="N_percentage",
         help="Percentage threshold for N amino acids from which mutation is not created",
+        type=float,
         required=False,
         default=0.7,
     )

@@ -8,7 +8,13 @@ from Bio import SeqIO, SeqRecord
 from pybedtools import BedTool
 from tqdm import tqdm
 
-from .config import SIM_PATH_OUTPUT, TARGET_DATA_FILE_NAME, TARGET_DATA_PATH
+from .config import (
+    MODIFIED_FASTA_FILE_NAME,
+    REF_GEN_FILE_NAME,
+    REF_GEN_PATH,
+    SIM_DATA_PATH,
+    TARGET_DATA_FILE_NAME,
+)
 from .utils import BedFormat, BedFormat_to_BedTool, BedTool_to_BedFormat
 
 
@@ -29,15 +35,13 @@ class CNVGenerator:
 
     def __init__(
         self,
-        fasta_file: str,
         window_size: int,
         max_cnv_length: int,
         min_cnv_gap: int,
         N_percentage: float,
     ) -> None:
-        self.fasta_file = fasta_file
-        self.pathout = SIM_PATH_OUTPUT
-        self.target_data_path = TARGET_DATA_PATH
+        self.fasta_file = "/".join([REF_GEN_PATH, REF_GEN_FILE_NAME])
+        self.pathout = SIM_DATA_PATH
         self.target_data_file_name = TARGET_DATA_FILE_NAME
         self.window_size = window_size
         self.max_cnv_length = max_cnv_length
@@ -69,7 +73,7 @@ class CNVGenerator:
         self._create_total_windows(total_Bedtool, chr_info)
         return total_BedFormat
 
-    def modify_fasta_file(self, total_file: np.array) -> str:
+    def modify_fasta_file(self, total_file: np.array) -> None:
         """
         Method to modify fasta file.
         It generates fasta file with CNV's.
@@ -88,6 +92,7 @@ class CNVGenerator:
             fasta.id: "" for fasta in SeqIO.parse(open(self.fasta_file), "fasta")
         }
         for line in tqdm(total_file, total=len(total_file)):
+            print(line)
             if line.cnv_type == "del":
                 continue
             elif line.cnv_type == "normal":
@@ -98,8 +103,7 @@ class CNVGenerator:
                 seq_to_copy = fasta_original[line.chr][line.start : line.end]
                 str_modified = seq_to_copy * line.freq
                 fasta_modified[line.chr] += str_modified
-
-        return self._save_fasta_CNV(fasta_modified)
+        self._save_fasta_CNV(fasta_modified)
 
     def _clean_bed_dup_del(self) -> tuple[BedTool, BedTool, np.array]:
         """
@@ -146,14 +150,13 @@ class CNVGenerator:
 
     def _create_total_windows(self, total_bedtool, chr_info):
         chr_info_bed = BedFormat_to_BedTool(chr_info)
-        os.makedirs(self.target_data_path, exist_ok=True)
         BedTool.window_maker(
             chr_info_bed,
             b=total_bedtool,
             w=self.window_size - 1,
             s=self.window_size,
             i="src",
-        ).saveas("/".join([self.target_data_path, self.target_data_file_name]))
+        ).saveas("/".join([self.pathout, self.target_data_file_name]))
 
     def _generate_freq(self, dup: BedTool, dele: BedTool) -> tuple[np.array, np.array]:
         """
@@ -476,7 +479,7 @@ class CNVGenerator:
         len_fasta = len(fasta_file.seq)
         return np.array([BedFormat(fasta_file.id, 1, len_fasta)])
 
-    def _save_fasta_CNV(self, fasta_modified: dict) -> str:
+    def _save_fasta_CNV(self, fasta_modified: dict) -> None:
         """
         Method to save fasta file with CNV's.
 
@@ -486,7 +489,7 @@ class CNVGenerator:
         Returns:
             str: path to fasta file with CNV's
         """
-        fasta_cnv_name = f"{self.pathout}fasta_CNV.fa"
+        fasta_cnv_name = "/".join([self.pathout, MODIFIED_FASTA_FILE_NAME])
 
         if os.path.exists(fasta_cnv_name):
             os.remove(fasta_cnv_name)
@@ -494,4 +497,3 @@ class CNVGenerator:
         for id, fasta_str in fasta_modified.items():
             with open(fasta_cnv_name, "a") as fasta_cnv:
                 fasta_cnv.write(f">{id}\n{fasta_str}\n")
-        return fasta_cnv_name

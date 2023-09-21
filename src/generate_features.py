@@ -1,4 +1,5 @@
 import glob
+import logging
 import os
 import time
 from multiprocessing import Pool
@@ -9,6 +10,14 @@ import pandas as pd
 import pysam
 from numba import jit
 from tqdm import tqdm
+
+from src.config import (
+    FEATURES_COMBINED_FILE,
+    SIM_BAM_FILE_NAME,
+    SIM_DATA_PATH,
+    STATS_FOLDER,
+    TARGET_DATA_FILE_NAME,
+)
 
 
 @jit(nopython=True)
@@ -29,21 +38,23 @@ def fastest_sum(list_of_lists):
 
 
 class Stats:
-    def __init__(self, bam_file: str, output_folder: str, cpus: int = 2) -> None:
-        self.bam_file = bam_file
-        self.output_folder = f"stats/{output_folder}"
+    def __init__(self, cpus: int = 2) -> None:
+        self.bam_file = "/".join([SIM_DATA_PATH, SIM_BAM_FILE_NAME])
+        self.output_folder = STATS_FOLDER
         self.cpus = cpus
         pysam.index(self.bam_file)
         Path(self.output_folder).mkdir(parents=True, exist_ok=True)
 
-    def combine_into_one_big_file(self, target_file: str) -> pd.DataFrame:
-        print("comining into one big file...")
-        isExist: bool = os.path.exists(f"{self.output_folder}/combined.csv")
+    def combine_into_one_big_file(self) -> pd.DataFrame:
+        logging.info("Combining all stats into one big file")
+        isExist: bool = os.path.exists(
+            "/".join([self.output_folder, FEATURES_COMBINED_FILE])
+        )
         if isExist:
-            os.system(f"rm -r {self.output_folder}/combined.csv")
+            os.system(f"rm -r {self.output_folder}/{FEATURES_COMBINED_FILE}")
         files_for_this_idv = glob.glob(os.path.join(self.output_folder, "*.csv"))
         df_y = pd.read_csv(
-            target_file,
+            "/".join([SIM_DATA_PATH, TARGET_DATA_FILE_NAME]),
             sep="\t",
             dtype={"chr": object},
             header=None,
@@ -56,17 +67,17 @@ class Stats:
             )
         )
         df = pd.merge(df_X, df_y, on=["chr", "start", "end"])
-        df.to_csv(f"{self.output_folder}/combined.csv", index=False)
+        df.to_csv("/".join([self.output_folder, FEATURES_COMBINED_FILE]), index=False)
 
-    def generate_stats(self, chrs: list, window_size: int, step: int) -> pd.DataFrame:
+    def generate_stats(self, chrs: list, window_size: int) -> pd.DataFrame:
         with pysam.AlignmentFile(self.bam_file, "rb", threads=self.cpus) as bam:
             refname = bam.references
             seqlen = bam.lengths
         all_chrs = {rname: slen for rname, slen in zip(refname, seqlen)}
         chrs_to_calc = {your_key: all_chrs[your_key] for your_key in chrs}
 
-        print(
-            f"Calculating features for chromosoms: {chrs_to_calc.keys()} with lengths {chrs_to_calc.values()}"
+        logging.info(
+            f"Calculating features for chromosomes: {chrs_to_calc.keys()} with lengths {chrs_to_calc.values()}"
         )
         out_columns = [
             [
@@ -84,26 +95,25 @@ class Stats:
         with Pool(processes=self.cpus) as p:
             start_time = time.time()
             arg = [
-                (ref, seq, window_size, step, out_columns)
+                (ref, seq, window_size, out_columns)
                 for ref, seq in chrs_to_calc.items()
             ]
             p.map(self.get_features, arg)
-            print(
-                f"Time elapsed to calculate features for individual {self.output_folder}, with time {time.time() - start_time}"
+            logging.info(
+                f"Time elapsed to calculate features for all chromosomes {time.time() - start_time}"
             )
 
     def get_features(
         self,
-        args: tuple[str, int, int, int, list],
+        args: tuple[str, int, int, list],
     ) -> None:
         refname = args[0]
         seqlen = args[1]
         window_size = args[2]
-        step = args[3]
-        out_columns = args[4]
-        starts = range(1, seqlen - window_size, step)
+        out_columns = args[3]
+        starts = range(1, seqlen - window_size + 2, window_size)
         total = len(list(starts))
-        ends = range(step, seqlen + 1, step)
+        ends = range(window_size, seqlen + 1, window_size)
         output = []
         with pysam.AlignmentFile(self.bam_file, "rb", threads=self.cpus) as bam:
             for start, end in tqdm(zip(starts, ends), total=total):

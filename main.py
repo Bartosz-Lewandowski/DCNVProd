@@ -5,6 +5,12 @@ from subprocess import call
 
 from src.argparser import CHRS, arg_parser
 from src.cnv_generator import CNVGenerator
+from src.config import (
+    REF_GEN_FILE_NAME,
+    REF_GEN_PATH,
+    SIM_BAM_FILE_NAME,
+    SIM_DATA_PATH,
+)
 from src.generate_features import Stats
 from src.sim_reads import SimReads
 from src.train import Train
@@ -41,21 +47,20 @@ def create_sim_bam(
     combine_and_cleanup_reference_genome(
         "reference_genome", "reference_genome/ref_genome.fa"
     )
-    ref_genome_fasta = "reference_genome/ref_genome.fa"
-    cnv_gen = CNVGenerator(
-        ref_genome_fasta, window_size, max_cnv_length, min_cnv_gap, N_percentage
-    )
+    cnv_gen = CNVGenerator(window_size, max_cnv_length, min_cnv_gap, N_percentage)
+    os.makedirs(SIM_DATA_PATH, exist_ok=True)
     total = cnv_gen.generate_cnv()
-    fasta_modified = cnv_gen.modify_fasta_file(total)
-    sim_reads = SimReads(fasta_modified, 10, cpu=cpus)
+    cnv_gen.modify_fasta_file(total)
+    sim_reads = SimReads(10, cpu=cpus)
     r1, r2 = sim_reads.sim_reads_genome()
-    r1 = "train_sim/10_R1.fastq"
-    r2 = "train_sim/10_R2.fastq"
-    call(f"bwa index {ref_genome_fasta}", shell=True)  # index reference genome
-    os.makedirs("sim_data/", exist_ok=True)
-    bwa_command = f"bwa mem -t {cpus} {ref_genome_fasta} \
+    r1 = f"{SIM_DATA_PATH}/10_R1.fastq"
+    r2 = f"{SIM_DATA_PATH}/10_R2.fastq"
+    call(
+        f"bwa index {REF_GEN_PATH}/{REF_GEN_FILE_NAME}", shell=True
+    )  # index reference genome
+    bwa_command = f"bwa mem -t {cpus} {REF_GEN_PATH}/{REF_GEN_FILE_NAME} \
                     {r1} {r2} | samtools view -Shb - | \
-                    samtools sort - > sim_data/sim_data.bam"
+                    samtools sort - > {SIM_DATA_PATH}/{SIM_BAM_FILE_NAME}"
     call(bwa_command, shell=True)
 
 
@@ -66,7 +71,7 @@ if __name__ == "__main__":
         if args.chrs == ["all"]:
             args.chrs = CHRS[:-1]
 
-        if args.new_data and not args.new_features:
+        if args.new_data:
             create_sim_bam(
                 args.chrs,
                 args.cpus,
@@ -75,18 +80,18 @@ if __name__ == "__main__":
                 args.max_cnv_length,
                 args.N_percentage,
             )
+
+        if args.new_features:
+            logging.info("Generating new features")
+            stats = Stats(cpus=args.cpus)
+            df_with_stats = stats.generate_stats(
+                chrs=args.chrs, window_size=args.window_size
+            )
+            stats.combine_into_one_big_file()
+        else:
             logging.warning(
                 "WARNING##: You need to create new features aswell, make sure to run with --new_features flag."
             )
-
-        if args.new_features:
-            print("##Creating features for simulated data...")
-            stats = Stats("sim_data/sim_data.bam", output_folder="sim", cpus=args.cpus)
-            df_with_stats = stats.generate_stats(
-                chrs=args.chrs, window_size=args.window_size, step=args.window_size
-            )
-            stats.combine_into_one_big_file("sim_target/sim_target.csv")
-
     if args.command == "train":
         classifier = Train(args.EDA)
         if not os.path.exists("train/sim.csv"):
