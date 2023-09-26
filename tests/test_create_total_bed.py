@@ -8,7 +8,7 @@ from src.utils import BedFormat
 
 @pytest.fixture
 def cnv_generator(sample_fasta_file):
-    cnv_gen = CNVGenerator(sample_fasta_file, 50, 75, 10, 0.7)
+    cnv_gen = CNVGenerator(50, 75, 10, 0.7, sample_fasta_file)
     return cnv_gen
 
 

@@ -10,7 +10,7 @@ from src.utils import BedFormat
 
 @pytest.fixture
 def cnv_generator(sample_fasta_file):
-    cnv_gen = CNVGenerator(sample_fasta_file, 50, 75, 10, 0.7)
+    cnv_gen = CNVGenerator(50, 75, 10, 0.7, sample_fasta_file)
     return cnv_gen
 
 
@@ -49,15 +49,15 @@ def test_create_total_windows(cnv_generator, total_files, chr_info):
     total_bedformat, total_bedtools = total_files
     with tempfile.TemporaryDirectory() as temp_dir:
         # Set TARGET_DATA_PATH to the temporary directory.
-        TARGET_DATA_PATH = temp_dir
+        pathout = temp_dir
         TARGET_DATA_FILE_NAME = "test_output.csv"
-        cnv_generator.target_data_path = TARGET_DATA_PATH
+        cnv_generator.pathout = pathout
         cnv_generator.target_data_file_name = TARGET_DATA_FILE_NAME
         # Call the function to create total windows.
         cnv_generator._create_total_windows(total_bedtools, chr_info)
 
         # Check if the output file exists.
-        output_file_path = os.path.join(TARGET_DATA_PATH, TARGET_DATA_FILE_NAME)
+        output_file_path = os.path.join(pathout, TARGET_DATA_FILE_NAME)
         assert os.path.exists(output_file_path)
 
 
@@ -65,14 +65,14 @@ def test_create_total_windows_output(cnv_generator, total_files, chr_info):
     total_bedformat, total_bedtools = total_files
     with tempfile.TemporaryDirectory() as temp_dir:
         # Set TARGET_DATA_PATH to the temporary directory.
-        TARGET_DATA_PATH = temp_dir
+        pathout = temp_dir
         TARGET_DATA_FILE_NAME = "test_output.csv"
-        cnv_generator.target_data_path = TARGET_DATA_PATH
+        cnv_generator.pathout = pathout
         cnv_generator.target_data_file_name = TARGET_DATA_FILE_NAME
         # Call the function to create total windows.
         cnv_generator._create_total_windows(total_bedtools, chr_info)
         data = pd.read_csv(
-            os.path.join(TARGET_DATA_PATH, TARGET_DATA_FILE_NAME),
+            os.path.join(pathout, TARGET_DATA_FILE_NAME),
             sep="\t",
             dtype={"chr": object},
             header=None,

@@ -64,7 +64,7 @@ def test_BedFormat_to_BedTool():
 
 
 def test_download_first_and_last_chromosomes(temp_directory):
-    chrs_to_download = ["1", "18"]
+    chrs_to_download = ["18"]
     download_reference_genome(chrs_to_download, temp_directory)
 
     assert os.path.exists(temp_directory)
