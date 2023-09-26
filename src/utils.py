@@ -9,6 +9,8 @@ import requests
 from pybedtools import BedTool
 from tqdm.std import tqdm
 
+from .config import REF_GEN_PATH
+
 
 @dataclass
 class BedFormat:
@@ -55,9 +57,7 @@ def get_number_of_individuals(file_names: list[str]) -> list:
     return output
 
 
-def download_reference_genome(
-    chrs: list, output_folder: str = "reference_genome"
-) -> None:
+def download_reference_genome(chrs: list, output_folder: str = REF_GEN_PATH) -> None:
     """Download reference genome from Ensembl.
     Save it in reference_genome folder.
     """

@@ -6,6 +6,7 @@ MODIFIED_FASTA_FILE_NAME = "modified_fasta_CNV.fa"
 
 REF_GEN_PATH = "reference_genome"
 REF_GEN_FILE_NAME = "ref_genome.fa"
+REF_FASTA_FILE = "/".join([REF_GEN_PATH, REF_GEN_FILE_NAME])
 
 STATS_FOLDER = "stats"
 

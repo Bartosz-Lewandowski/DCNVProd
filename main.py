@@ -5,12 +5,7 @@ from subprocess import call
 
 from src.argparser import CHRS, arg_parser
 from src.cnv_generator import CNVGenerator
-from src.config import (
-    REF_GEN_FILE_NAME,
-    REF_GEN_PATH,
-    SIM_BAM_FILE_NAME,
-    SIM_DATA_PATH,
-)
+from src.config import REF_FASTA_FILE, SIM_BAM_FILE_NAME, SIM_DATA_PATH
 from src.generate_features import Stats
 from src.sim_reads import SimReads
 from src.train import Train
@@ -55,10 +50,8 @@ def create_sim_bam(
     r1, r2 = sim_reads.sim_reads_genome()
     r1 = f"{SIM_DATA_PATH}/10_R1.fastq"
     r2 = f"{SIM_DATA_PATH}/10_R2.fastq"
-    call(
-        f"bwa index {REF_GEN_PATH}/{REF_GEN_FILE_NAME}", shell=True
-    )  # index reference genome
-    bwa_command = f"bwa mem -t {cpus} {REF_GEN_PATH}/{REF_GEN_FILE_NAME} \
+    call(f"bwa index {REF_FASTA_FILE}", shell=True)  # index reference genome
+    bwa_command = f"bwa mem -t {cpus} {REF_FASTA_FILE} \
                     {r1} {r2} | samtools view -Shb - | \
                     samtools sort - > {SIM_DATA_PATH}/{SIM_BAM_FILE_NAME}"
     call(bwa_command, shell=True)

@@ -10,8 +10,7 @@ from tqdm import tqdm
 
 from .config import (
     MODIFIED_FASTA_FILE_NAME,
-    REF_GEN_FILE_NAME,
-    REF_GEN_PATH,
+    REF_FASTA_FILE,
     SIM_DATA_PATH,
     TARGET_DATA_FILE_NAME,
 )
@@ -39,9 +38,11 @@ class CNVGenerator:
         max_cnv_length: int,
         min_cnv_gap: int,
         N_percentage: float,
+        fasta_file: str = REF_FASTA_FILE,
+        pathout: str = SIM_DATA_PATH,
     ) -> None:
-        self.fasta_file = "/".join([REF_GEN_PATH, REF_GEN_FILE_NAME])
-        self.pathout = SIM_DATA_PATH
+        self.fasta_file = fasta_file
+        self.pathout = pathout
         self.target_data_file_name = TARGET_DATA_FILE_NAME
         self.window_size = window_size
         self.max_cnv_length = max_cnv_length
