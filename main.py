@@ -5,7 +5,12 @@ from subprocess import call
 
 from src.argparser import CHRS, arg_parser
 from src.cnv_generator import CNVGenerator
-from src.config import REF_FASTA_FILE, SIM_BAM_FILE_NAME, SIM_DATA_PATH
+from src.config import (
+    REF_FASTA_FILE,
+    SIM_BAM_FILE_NAME,
+    SIM_DATA_PATH,
+    SIM_READS_FOLDER,
+)
 from src.generate_features import Stats
 from src.sim_reads import SimReads
 from src.train import Train
@@ -25,6 +30,7 @@ def create_sim_bam(
     min_cnv_gap: int,
     max_cnv_length: int,
     N_percentage: float,
+    cov: int,
 ) -> None:
     """
     Creates simulated bam file. First it downloads reference genome, then it creates CNV's and then it simulates reads.
@@ -46,10 +52,9 @@ def create_sim_bam(
     os.makedirs(SIM_DATA_PATH, exist_ok=True)
     total = cnv_gen.generate_cnv()
     cnv_gen.modify_fasta_file(total)
-    sim_reads = SimReads(10, cpu=cpus)
-    r1, r2 = sim_reads.sim_reads_genome()
-    r1 = f"{SIM_DATA_PATH}/10_R1.fastq"
-    r2 = f"{SIM_DATA_PATH}/10_R2.fastq"
+    sim_reads = SimReads(cov, cpu=cpus)
+    sim_reads.sim_reads_genome()
+    r1, r2 = f"{SIM_READS_FOLDER}/{cov}_R1.fastq", f"{SIM_READS_FOLDER}/{cov}_R2.fastq"
     call(f"bwa index {REF_FASTA_FILE}", shell=True)  # index reference genome
     bwa_command = f"bwa mem -t {cpus} {REF_FASTA_FILE} \
                     {r1} {r2} | samtools view -Shb - | \
@@ -72,6 +77,7 @@ if __name__ == "__main__":
                 args.min_cnv_gap,
                 args.max_cnv_length,
                 args.N_percentage,
+                args.cov,
             )
 
         if args.new_features:

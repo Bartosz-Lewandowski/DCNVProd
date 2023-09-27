@@ -98,6 +98,14 @@ def arg_parser():
         required=False,
         default=0.7,
     )
+    sim.add_argument(
+        "--cov",
+        dest="cov",
+        help="Coverage for simulating reads",
+        type=int,
+        required=False,
+        default=10,
+    )
     train.add_argument(
         "-EDA",
         help="Perform EDA and save plots.",
