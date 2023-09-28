@@ -1,5 +1,6 @@
 SIM_DATA_PATH = "sim_data"
 SIM_BAM_FILE_NAME = "sim_data.bam"
+SIM_BAM_FILE_PATH = "/".join([SIM_DATA_PATH, SIM_BAM_FILE_NAME])
 
 TARGET_DATA_FILE_NAME = "target_file.csv"
 MODIFIED_FASTA_FILE_NAME = "modified_fasta_CNV.fa"
