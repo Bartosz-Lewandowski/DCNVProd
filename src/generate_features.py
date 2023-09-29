@@ -114,7 +114,9 @@ class Stats:
             refname = bam.references
             seqlen = bam.lengths
         all_chrs = {rname: slen for rname, slen in zip(refname, seqlen)}
-        chrs_to_calc = {your_key: all_chrs[your_key] for your_key in chrs}
+        chrs_to_calc = {
+            chr_key: all_chrs[chr_key] for chr_key in chrs
+        }  # take only chrs that were passed as argument
 
         logging.info(
             f"Calculating features for chromosomes: {chrs_to_calc.keys()} with lengths {chrs_to_calc.values()}"
