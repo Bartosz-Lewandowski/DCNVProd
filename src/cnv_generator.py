@@ -9,7 +9,7 @@ from pybedtools import BedTool
 from tqdm import tqdm
 
 from .config import (
-    MODIFIED_FASTA_FILE_NAME,
+    MODIFIED_FASTA_FILE_PATH,
     REF_FASTA_FILE,
     SIM_DATA_PATH,
     TARGET_DATA_FILE_NAME,
@@ -78,8 +78,6 @@ class CNVGenerator:
         """
         Method to modify fasta file.
         It generates fasta file with CNV's.
-        TODO: correct coordinates after duplications and deletions.
-
         Args:
             total_file: BedFormat object with all CNV's
 
@@ -93,7 +91,6 @@ class CNVGenerator:
             fasta.id: "" for fasta in SeqIO.parse(open(self.fasta_file), "fasta")
         }
         for line in tqdm(total_file, total=len(total_file)):
-            print(line)
             if line.cnv_type == "del":
                 continue
             elif line.cnv_type == "normal":
@@ -490,11 +487,10 @@ class CNVGenerator:
         Returns:
             str: path to fasta file with CNV's
         """
-        fasta_cnv_name = "/".join([self.pathout, MODIFIED_FASTA_FILE_NAME])
 
-        if os.path.exists(fasta_cnv_name):
-            os.remove(fasta_cnv_name)
+        if os.path.exists(MODIFIED_FASTA_FILE_PATH):
+            os.remove(MODIFIED_FASTA_FILE_PATH)
 
         for id, fasta_str in fasta_modified.items():
-            with open(fasta_cnv_name, "a") as fasta_cnv:
+            with open(MODIFIED_FASTA_FILE_PATH, "a") as fasta_cnv:
                 fasta_cnv.write(f">{id}\n{fasta_str}\n")

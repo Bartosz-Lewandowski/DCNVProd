@@ -1,4 +1,5 @@
 import gc
+import os
 from subprocess import call
 
 import numpy as np
@@ -48,6 +49,7 @@ class SimReads:
         self.cov = cov
         self.cpu = cpu
         self.pathout = pathout
+        os.makedirs(pathout, exist_ok=True)
 
     def sim_reads_genome(self) -> None:
         """
