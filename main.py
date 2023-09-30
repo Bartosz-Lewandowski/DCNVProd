@@ -83,10 +83,10 @@ if __name__ == "__main__":
         if args.new_features:
             logging.info("Generating new features")
             stats = Stats(cpus=args.cpus)
-            df_with_stats = stats.generate_stats(
+            calculated_stats = stats.generate_stats(
                 chrs=args.chrs, window_size=args.window_size
             )
-            stats.combine_into_one_big_file()
+            stats.combine_into_one_big_file(calculated_stats)
         else:
             logging.warning(
                 "WARNING##: You need to create new features aswell, make sure to run with --new_features flag."

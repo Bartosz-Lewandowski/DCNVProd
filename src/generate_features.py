@@ -1,4 +1,3 @@
-import glob
 import logging
 import os
 import time
@@ -68,7 +67,7 @@ class Stats:
         pysam.index(self.bam_file)
         Path(self.output_folder).mkdir(parents=True, exist_ok=True)
 
-    def combine_into_one_big_file(self) -> pd.DataFrame:
+    def combine_into_one_big_file(self, values: list) -> pd.DataFrame:
         """
         Combines all stats into one big file with target file.
 
@@ -80,7 +79,21 @@ class Stats:
         isExist: bool = os.path.exists(training_file)
         if isExist:
             os.system(f"rm -r {training_file}")
-        files_for_this_idv = glob.glob(os.path.join(self.output_folder, "*.csv"))
+        df_X = pd.DataFrame(
+            values,
+            columns=[
+                "chr",
+                "start",
+                "end",
+                "means",
+                "std",
+                "BAM_CMATCH",
+                "BAM_CINS",
+                "BAM_CDEL",
+                "BAM_CSOFT_CLIP",
+            ],
+        )
+        print(df_X.head())
         df_y = pd.read_csv(
             "/".join([SIM_DATA_PATH, TARGET_DATA_FILE_NAME]),
             sep="\t",
@@ -88,16 +101,11 @@ class Stats:
             header=None,
             names=["chr", "start", "end", "cnv_type"],
         )
-        df_X = pd.concat(
-            (
-                pd.read_csv(f, sep="\t", dtype={"chr": object})
-                for f in files_for_this_idv
-            )
-        )
+
         df = pd.merge(df_X, df_y, on=["chr", "start", "end"])
         df.to_csv(training_file, index=False)
 
-    def generate_stats(self, chrs: list, window_size: int) -> pd.DataFrame:
+    def generate_stats(self, chrs: list, window_size: int) -> list:
         """
         Generates stats for each chromosome in genome.
         It uses multiprocessing to speed up the process.
@@ -121,61 +129,68 @@ class Stats:
         logging.info(
             f"Calculating features for chromosomes: {chrs_to_calc.keys()} with lengths {chrs_to_calc.values()}"
         )
-        out_columns = [
-            [
-                "chr",
-                "start",
-                "end",
-                "means",
-                "std",
-                "BAM_CMATCH",
-                "BAM_CINS",
-                "BAM_CDEL",
-                "BAM_CSOFT_CLIP",
-            ]
-        ]
         with Pool(processes=self.cpus) as p:
             start_time = time.time()
-            arg = [
-                (ref, seq, window_size, out_columns)
-                for ref, seq in chrs_to_calc.items()
-            ]
-            p.map(self.get_features, arg)
+            args = []
+            total = 0
+
+            for ref, seq in chrs_to_calc.items():
+                starts, ends = self.__calc_starts_ends(seq, window_size)
+                total += len(starts)
+
+                for s, e in zip(starts, ends):
+                    args.append((ref, s, e))
+
+            results = list(
+                tqdm(
+                    p.imap(self.get_features, args),
+                    total=total,
+                    desc="Calculating features",
+                )
+            )
             logging.info(
                 f"Time elapsed to calculate features for all chromosomes {time.time() - start_time}"
             )
+            return results
+
+    def __calc_starts_ends(self, seqlen: int, window_size: int) -> tuple:
+        """
+        Calculates starts and ends for a given chromosome.
+
+        Args:
+            seqlen (int): length of the chromosome
+            window_size (int): window size for calculating stats
+
+        Returns:
+            tuple: tuple of starts and ends
+        """
+        starts = range(1, seqlen - window_size + 2, window_size)
+        ends = range(window_size, seqlen + 1, window_size)
+        return starts, ends
 
     def get_features(
         self,
-        args: tuple[str, int, int, list],
-    ) -> None:
+        args: tuple[str, int, int],
+    ) -> list:
         """
         Calculates stats for a given chromosome.
         Calculates mean and std of coverage and cigar stats for each window.
         Saves stats to a csv file.
 
         Args:
-            args (tuple): tuple with arguments for the function
+            args (tuple): list with arguments for the function
         """
         refname = args[0]
-        seqlen = args[1]
-        window_size = args[2]
-        out_columns = args[3]
-        starts = range(1, seqlen - window_size + 2, window_size)
-        total = len(list(starts))
-        ends = range(window_size, seqlen + 1, window_size)
-        output = []
-        with pysam.AlignmentFile(self.bam_file, "rb", threads=self.cpus) as bam:
-            for start, end in tqdm(zip(starts, ends), total=total):
-                cov = bam.count_coverage(refname, start, end)
-                cov = np.array([list(x) for x in cov])
-                cov_all = fastest_sum(cov)
-                stats = numba_calc(cov_all)
-                cigar = self._get_cigar_stats(refname, start, end, bam)
-                out = [refname, start, end, *stats, *cigar]
-                output.append(out)
-        df = pd.DataFrame(output, columns=out_columns)
-        df.to_csv(f"{self.output_folder}/{refname}.csv", sep="\t", index=False)
+        start = args[1]
+        end = args[2]
+        with pysam.AlignmentFile(self.bam_file, "rb", threads=1) as bam:
+            cov = bam.count_coverage(refname, start, end)
+            cov = np.array([list(x) for x in cov])
+            cov_all = fastest_sum(cov)
+            stats = numba_calc(cov_all)
+            cigar = self._get_cigar_stats(refname, start, end, bam)
+            out = [refname, start, end, *stats, *cigar]
+        return out
 
     def _get_cigar_stats(self, chr: str, start: int, end: int, bam) -> list:
         """
