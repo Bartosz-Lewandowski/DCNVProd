@@ -64,24 +64,6 @@ def download_reference_genome(chrs: list, output_folder: str = REF_GEN_PATH) -> 
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    # Check if all files already exist
-    files_exist = all(
-        os.path.exists(
-            os.path.join(
-                output_folder, f"Sus_scrofa.Sscrofa11.1.dna.chromosome.{chr}.fa.gz"
-            )
-        )
-        for chr in chrs
-    )
-
-    if files_exist:
-        user_response = input(
-            "Reference genome files already exist. Do you want to download them again? (y/n): "
-        )
-        if user_response.lower() != "y":
-            print("Skipping download.")
-            return
-
     URL = "http://ftp.ensembl.org/pub/release-107/fasta/sus_scrofa/dna/"
     page = requests.get(URL)
     cont = page.content
