@@ -22,3 +22,4 @@ plots/
 .pytest_cache/
 train_target/
 reference_genome.pac
+tests/test_generate_features/sim_data.bam.bai
