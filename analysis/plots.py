@@ -22,14 +22,14 @@ def plot_count(feature, data, name):
     ax.yaxis.set_major_locator(mticker.FixedLocator(ticks_loc))
     ax.set_yticklabels([int(x / 1000000) for x in ticks_loc])
     # ax.set_xticklabels(["Brak CNV", "Delecja", "Duplikacja"])
-    ax.set_xlabel("Typ CNV")
-    ax.set_ylabel("Liczba okien genomowych wyrażona w milionach")
+    ax.set_xlabel("CNV type")
+    ax.set_ylabel("The number of genomic windows in millions")
     os.makedirs("plots/", exist_ok=True)
     plot_name = f"plots/{feature}_{name}_plot.png"
     plt.savefig(plot_name)
 
 
-def feature_correlation(X):
+def plot_feature_correlation(X: pd.DataFrame):
     # Using Spearman Correlation
     plt.figure(figsize=(12, 12))
     cor = X.corr(method="spearman").round(2)
@@ -56,10 +56,10 @@ def feature_correlation(X):
     title = "FEATURE CORRELATION MATRIX"
     plt.title(title, fontsize=18)
 
-    plt.savefig("correlation.png")
+    plt.savefig("plots/correlation.png")
 
 
-def feature_importances(feature_names, importances):
+def plot_feature_importances(feature_names: list, importances: list):
     forest_importances = pd.Series(importances, index=feature_names)
     plt.figure(figsize=(14, 10))
     palette = sns.diverging_palette(230, 0, 90, 60, n=19)
@@ -68,16 +68,16 @@ def feature_importances(feature_names, importances):
     )
     xticks = [i.upper() for i in forest_importances.index]
     plt.xticks(plt.xticks()[0], labels=xticks, rotation=40)
-    plt.savefig("feature_importances.png")
+    plt.savefig("plots/feature_importances.png")
 
 
-def confusion_matrix_plot(true, y_pred):
+def plot_confustion_matrix(true, y_pred):
     cm = confusion_matrix(true, y_pred)
     ax = plt.subplot()
     sns.heatmap(cm, annot=True, fmt="g", cmap="Blues", ax=ax)
-    ax.set_xlabel("Przewidziane klasy")
-    ax.set_ylabel("Faktyczne klasy")
-    ax.set_title("Macierz błędu")
+    ax.set_xlabel("Predicted classes")
+    ax.set_ylabel("Real classes")
+    ax.set_title("Confusion matrix")
     ax.xaxis.set_ticklabels(["0", "1", "2"])
     ax.yaxis.set_ticklabels(["0", "1", "2"])
     plt.plot()
