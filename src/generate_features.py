@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pysam
+import scipy
 from numba import jit
 from tqdm import tqdm
 
@@ -26,11 +27,12 @@ def numba_calc(cov: list) -> list:
     """
     means = np.mean(cov)
     std = np.std(cov)
-    return [means, std]
+    med = np.median(cov)
+    return [means, std, med]
 
 
 @jit(nopython=True)
-def fastest_sum(list_of_lists: list) -> tuple:
+def fastest_sum(list_of_lists: np.ndarray) -> np.ndarray:
     """
     Sums all lists in list_of_lists.
     Faster than np.sum(list_of_lists, axis=0)
@@ -60,9 +62,14 @@ class Stats:
         cpus (int): number of cpus to use
     """
 
-    def __init__(self, cpus: int, bam_file: str = SIM_BAM_FILE_PATH) -> None:
+    def __init__(
+        self,
+        cpus: int,
+        bam_file: str = SIM_BAM_FILE_PATH,
+        output_folder: str = STATS_FOLDER,
+    ) -> None:
         self.bam_file = bam_file
-        self.output_folder = STATS_FOLDER
+        self.output_folder = output_folder
         self.cpus = cpus
         pysam.index(self.bam_file)
         Path(self.output_folder).mkdir(parents=True, exist_ok=True)
@@ -85,15 +92,24 @@ class Stats:
                 "chr",
                 "start",
                 "end",
+                "overlap",
+                "intq",
                 "means",
                 "std",
+                "med",
                 "BAM_CMATCH",
                 "BAM_CINS",
                 "BAM_CDEL",
+                "BAM_CREF_SKIP",
                 "BAM_CSOFT_CLIP",
+                "BAM_CHARD_CLIP",
+                "BAM_CPAD",
+                "BAM_CEQUAL",
+                "BAM_CDIFF",
+                "BAM_CBACK",
+                "NM tag",
             ],
         )
-        print(df_X.head())
         df_y = pd.read_csv(
             "/".join([SIM_DATA_PATH, TARGET_DATA_FILE_NAME]),
             sep="\t",
@@ -185,11 +201,16 @@ class Stats:
         end = args[2]
         with pysam.AlignmentFile(self.bam_file, "rb", threads=1) as bam:
             cov = bam.count_coverage(refname, start, end)
+            overlap_list = [
+                x.get_overlap(start, end) for x in bam.fetch(refname, start, end)
+            ]
+            overlap = np.sum([x if x is not None else 0 for x in overlap_list])
             cov = np.array([list(x) for x in cov])
+            intq = scipy.stats.iqr(cov)
             cov_all = fastest_sum(cov)
             stats = numba_calc(cov_all)
             cigar = self._get_cigar_stats(refname, start, end, bam)
-            out = [refname, start, end, *stats, *cigar]
+            out = [refname, start, end, overlap, intq, *stats, *cigar]
         return out
 
     def _get_cigar_stats(self, chr: str, start: int, end: int, bam) -> list:
@@ -216,4 +237,5 @@ class Stats:
         )
         if isinstance(cigar, float):
             cigar = [0 for _ in range(11)]
-        return [cigar[0], cigar[1], cigar[2], cigar[4]]
+        # return [cigar[0], cigar[1], cigar[2], cigar[4]]
+        return cigar

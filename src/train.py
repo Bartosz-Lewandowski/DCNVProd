@@ -12,8 +12,6 @@ from sklearn.metrics import (
 )
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
-from .plots import plot_count
-
 
 class Train:
     def __init__(self, eda: bool) -> None:
@@ -24,9 +22,6 @@ class Train:
         sim_data = pd.read_csv("stats/sim/combined.csv", sep=",", dtype={"chr": object})
         test = sim_data[sim_data["chr"] == "13"]
         train = sim_data[sim_data["chr"] != "13"]
-        if self.eda:
-            plot_count("cnv_type", train, "train_sim")
-            plot_count("cnv_type", test, "test_sim")
         train.to_csv("train/sim.csv", index=False)
         test.to_csv("test/sim.csv", index=False)
 
@@ -59,7 +54,7 @@ class Train:
         }
         X_test_sim, y_test_sim = self.load_test_sim_files(lbl_e)
         model = self.fit_lgb(X_scaled, y_res, class_weights)
-        self.evaluate(model, X_test_sim, y_test_sim, scaler, "SIM")
+        self.evaluate(model, X_test_sim, y_test_sim, scaler)
         os.makedirs("model", exist_ok=True)
         pickle.dump(model, "model/best_model")
 
@@ -90,10 +85,9 @@ class Train:
         res_count = Counter(y_res)
         return X_res, y_res, res_count
 
-    def evaluate(self, model, X_test, y_test, scaler, type):
+    def evaluate(self, model, X_test, y_test, scaler):
         pred = model.predict(scaler.transform(X_test))
         with open("metrics.txt", "a") as f:
-            print(type, file=f)
             print(
                 f"FBETA SCORE: {fbeta_score(y_test, pred, beta = 3, average='macro')}",
                 file=f,
