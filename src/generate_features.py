@@ -7,8 +7,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pysam
-import scipy
 from numba import jit
+from scipy import stats as st
 from tqdm import tqdm
 
 from src.config import (
@@ -27,8 +27,7 @@ def numba_calc(cov: list) -> list:
     """
     means = np.mean(cov)
     std = np.std(cov)
-    med = np.median(cov)
-    return [means, std, med]
+    return [means, std]
 
 
 @jit(nopython=True)
@@ -96,17 +95,10 @@ class Stats:
                 "intq",
                 "means",
                 "std",
-                "med",
                 "BAM_CMATCH",
                 "BAM_CINS",
                 "BAM_CDEL",
-                "BAM_CREF_SKIP",
                 "BAM_CSOFT_CLIP",
-                "BAM_CHARD_CLIP",
-                "BAM_CPAD",
-                "BAM_CEQUAL",
-                "BAM_CDIFF",
-                "BAM_CBACK",
                 "NM tag",
             ],
         )
@@ -206,7 +198,7 @@ class Stats:
             ]
             overlap = np.sum([x if x is not None else 0 for x in overlap_list])
             cov = np.array([list(x) for x in cov])
-            intq = scipy.stats.iqr(cov)
+            intq = st.iqr(cov)
             cov_all = fastest_sum(cov)
             stats = numba_calc(cov_all)
             cigar = self._get_cigar_stats(refname, start, end, bam)
@@ -237,5 +229,4 @@ class Stats:
         )
         if isinstance(cigar, float):
             cigar = [0 for _ in range(11)]
-        # return [cigar[0], cigar[1], cigar[2], cigar[4]]
-        return cigar
+        return [cigar[0], cigar[1], cigar[2], cigar[4], cigar[-1]]
