@@ -19,13 +19,11 @@ def objective(trial):
     model_type = trial.suggest_categorical(
         "model_type", ["XGBoost", "LightGBM", "RandomForest"]
     )
-    n_estimators = trial.suggest_int("n_estimators", 20, 260, step=20)
     max_depth = trial.suggest_int("max_depth", 20, 100, step=20)
     class_weight = trial.suggest_categorical(
         "class_weight", [None, "balanced", {0: 3, 1: 3, 2: 1}]
     )
-    log_transform = trial.suggest_categorical("log_transform", [True, False])
-    standard_scaler = trial.suggest_categorical("standard_scaler", [True, False])
+    scaler = trial.suggest_categorical("scaler", ["StandardScaler", "log", None])
     undersampling = trial.suggest_categorical("undersampling", [True, False])
 
     # Preprocess the data based on hyperparameters
@@ -36,16 +34,18 @@ def objective(trial):
     else:
         X_res, y_res = X_train, y_train
 
-    if standard_scaler:
-        scaler = StandardScaler()
-        X_res = scaler.fit_transform(X_res)
-        x_test_res = scaler.transform(X_test)
-
-    if log_transform:
+    if scaler == "StandardScaler":
+        s = StandardScaler()
+        X_res = s.fit_transform(X_res)
+        x_test_res = s.transform(X_test)
+    elif scaler == "log":
         X_res = np.log1p(X_res)
         x_test_res = np.log1p(X_test)
+    else:
+        x_test_res = X_test
 
     if model_type == "RandomForest":
+        n_estimators = trial.suggest_int("n_estimators", 20, 260, step=20)
         params = {
             "min_samples_split": trial.suggest_int("min_samples_split", 1, 150),
             "min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 60),
@@ -59,6 +59,7 @@ def objective(trial):
             **params,
         )
     elif model_type == "LightGBM":
+        n_estimators = trial.suggest_int("n_estimators", 20, 260, step=20)
         params = {
             "reg_alpha": trial.suggest_float("reg_alpha", 1e-3, 1.0),
             "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 1.0),
@@ -117,10 +118,8 @@ def objective(trial):
     model.fit(X_res, y_res)
 
     # Przewidywanie na zbiorze testowym
-    if standard_scaler or log_transform:
-        y_pred = model.predict(x_test_res)
-    else:
-        y_pred = model.predict(X_test)
+
+    y_pred = model.predict(x_test_res)
     fbeta = fbeta_score(y_test, y_pred, beta=3, average="macro")
 
     results.append(
@@ -129,9 +128,9 @@ def objective(trial):
             "n_estimators": n_estimators,
             "max_depth": max_depth,
             "class_weight": class_weight,
-            "log_transform": log_transform,
-            "standard_scaler": standard_scaler,
+            "scaler": scaler,
             "undersampling": undersampling,
+            "params": params,
             "fbeta": fbeta,
             "classification_report": classification_report(
                 y_test, y_pred, zero_division=True
@@ -155,12 +154,6 @@ if __name__ == "__main__":
             "start",
             "end",
             "cnv_type",
-            "BAM_CREF_SKIP",
-            "BAM_CHARD_CLIP",
-            "BAM_CPAD",
-            "BAM_CEQUAL",
-            "BAM_CDIFF",
-            "BAM_CBACK",
         ],
         axis=1,
     )
@@ -171,12 +164,6 @@ if __name__ == "__main__":
             "start",
             "end",
             "cnv_type",
-            "BAM_CREF_SKIP",
-            "BAM_CHARD_CLIP",
-            "BAM_CPAD",
-            "BAM_CEQUAL",
-            "BAM_CDIFF",
-            "BAM_CBACK",
         ],
         axis=1,
     )
