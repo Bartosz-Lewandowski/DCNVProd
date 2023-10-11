@@ -5,7 +5,6 @@ import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from sklearn.metrics import confusion_matrix
 
 
 def plot_count(feature, data, name):
@@ -71,8 +70,7 @@ def plot_feature_importances(feature_names: list, importances: list):
     plt.savefig("plots/feature_importances.png")
 
 
-def plot_confustion_matrix(true, y_pred):
-    cm = confusion_matrix(true, y_pred)
+def plot_confustion_matrix(cm: np.ndarray):
     ax = plt.subplot()
     sns.heatmap(cm, annot=True, fmt="g", cmap="Blues", ax=ax)
     ax.set_xlabel("Predicted classes")
