@@ -28,11 +28,11 @@ class CNV:
         return all_length / self.length
 
     @property
-    def inresection_count(self) -> int:
+    def intersection_count(self) -> int:
         return len(self.intersected)
 
     @property
-    def inresection_percent(self) -> float:
+    def intersection_percent(self) -> float:
         intersection_length = sum(
             [self.intersection_length(cnv) for cnv in self.intersected]
         )
@@ -43,7 +43,7 @@ class CNV:
         return len(self.incorrect_childs)
 
     def intersection_length(self, other_cnv: "CNV") -> int:
-        return min(self.end, other_cnv.end) - max(self.start, other_cnv.start)
+        return min(self.end, other_cnv.end) - max(self.start, other_cnv.start) + 1
 
     def contains(self, other_cnv: "CNV") -> bool:
         return (
@@ -107,6 +107,9 @@ class CNVMetric:
             "all_true_cnvs": len(
                 [cnv for cnv in real_cnvs if cnv.cnv_type != "normal"]
             ),
+            "all_predicted_cnvs": len(
+                [cnv for cnv in predicted_cnvs if cnv.cnv_type != "normal"]
+            ),
         }
 
     def _extract_real_cnvs(self):
@@ -119,7 +122,7 @@ class CNVMetric:
         for i in self.df.itertuples():
             if i.cnv_type == current_type and i.chr == chr:
                 chrs_max_len = i.end
-            elif i.cnv_type == current_type and i.chr != chr:
+            elif i.chr != chr:
                 end = chrs_max_len
                 cnvs.append(CNV(current_type, chr, start, end))
                 current_type = i.cnv_type
@@ -134,6 +137,7 @@ class CNVMetric:
                 start = i.start
                 chr = i.chr
                 end = i.end
+                chrs_max_len = i.end
         # Dodanie ostatniego zakresu
         cnvs.append(CNV(current_type, chr, start, chrs_max_len))
         return cnvs
@@ -163,8 +167,9 @@ class CNVMetric:
                 start = i.start
                 chr = i.chr
                 end = i.end
+                chrs_max_len = i.end
         # Dodanie ostatniego zakresu
-        preds.append(CNV(current_type, chr, start, end))
+        preds.append(CNV(current_type, chr, start, chrs_max_len))
         return preds
 
     def _get_childs_intersecting_and_incorrect(self, cnvs: list[CNV], preds: list[CNV]):
@@ -208,34 +213,24 @@ class CNVMetric:
         return {"dup": dup, "del": dele}
 
     def __predicted_incorrectly(self, cnvs, intersected_half_correctly):
-        predicted_incorrectly = 0
-        for x in cnvs:
-            for _ in x.incorrect_childs:
-                predicted_incorrectly += 1
-        intersected_half_correctly_combined = (
-            intersected_half_correctly["dup"] + intersected_half_correctly["del"]
+        predicted_incorrectly = sum(
+            [cnv.contains_incorrect_count for cnv in cnvs if cnv.cnv_type == "normal"]
         )
-        intersected_incorrectly = (
-            sum([cnv.inresection_count for cnv in cnvs])
-            - intersected_half_correctly_combined
-        )
-        return {
-            "predicted_incorrectly": predicted_incorrectly + intersected_incorrectly
-        }
+        return predicted_incorrectly
 
     def __intersected_half_correctly(self, cnvs):
         dup = sum(
             [
                 1
                 for cnv in cnvs
-                if cnv.inresection_percent >= 0.8 and cnv.cnv_type == "dup"
+                if cnv.intersection_percent >= 0.8 and cnv.cnv_type == "dup"
             ]
         )
         dele = sum(
             [
                 1
                 for cnv in cnvs
-                if cnv.inresection_percent >= 0.8 and cnv.cnv_type == "del"
+                if cnv.intersection_percent >= 0.8 and cnv.cnv_type == "del"
             ]
         )
         return {"dup": dup, "del": dele}
@@ -245,7 +240,8 @@ class CNVMetric:
             [
                 1
                 for cnv in cnvs
-                if cnv.contains_percent >= 0.8
+                if cnv.contains_percent + cnv.intersection_percent >= 0.8
+                and cnv.intersection_percent < 0.8
                 and cnv.contains_percent != 1
                 and cnv.cnv_type == "dup"
             ]
@@ -254,7 +250,7 @@ class CNVMetric:
             [
                 1
                 for cnv in cnvs
-                if cnv.contains_percent >= 0.8
+                if cnv.contains_percent + cnv.intersection_percent >= 0.8
                 and cnv.contains_percent != 1
                 and cnv.cnv_type == "del"
             ]
@@ -264,7 +260,7 @@ class CNVMetric:
     def __prediction_cov(self, cnvs):
         return sum(
             [
-                cnv.contains_percent + cnv.inresection_percent
+                cnv.contains_percent + cnv.intersection_percent
                 for cnv in cnvs
                 if cnv.cnv_type != "normal"
             ]
