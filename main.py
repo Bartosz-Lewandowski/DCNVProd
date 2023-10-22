@@ -1,4 +1,3 @@
-import glob
 import logging
 import os
 from subprocess import call
@@ -10,14 +9,15 @@ from src.config import (
     SIM_BAM_FILE_NAME,
     SIM_DATA_PATH,
     SIM_READS_FOLDER,
+    TEST_PATH,
+    TRAIN_PATH,
 )
 from src.generate_features import Stats
 from src.sim_reads import SimReads
-from src.train import Train
+from src.train_basic_model import Train
 from src.utils import (
     combine_and_cleanup_reference_genome,
     download_reference_genome,
-    get_number_of_individuals,
 )
 
 logging.basicConfig(format="%(asctime)s : %(message)s", level=logging.INFO)
@@ -93,16 +93,8 @@ if __name__ == "__main__":
             )
     if args.command == "train":
         classifier = Train(args.EDA)
-        if not os.path.exists("train/sim.csv"):
-            classifier.prepare_sim()
-        if not os.path.exists("train/real.csv"):
-            bam_real_files: list[str] = sorted(
-                glob.glob(os.path.join("real_data/", "*.bam"))
-            )
-            indv = get_number_of_individuals(bam_real_files)
-            indv.sort(key=int)
-            train_indv = indv[:-1]
-            test_indv = [indv[-1]]
-            classifier.prepare_real(train_indv, test_indv)
-        if args.train:
-            classifier.train()
+        if not os.path.exists(TRAIN_PATH) or not os.path.exists(TEST_PATH):
+            classifier.prepare_data()
+        logging.info("Starting training basic model")
+        classifier.train()
+        classifier.evaluate_on_test_data()
