@@ -107,7 +107,7 @@ def arg_parser():
         default=10,
     )
     train.add_argument(
-        "-EDA",
+        "--eda",
         help="Perform EDA and save plots.",
         dest="EDA",
         action="store_true",
