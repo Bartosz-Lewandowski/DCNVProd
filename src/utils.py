@@ -48,15 +48,6 @@ def BedFormat_to_BedTool(seq: np.array) -> BedTool:
     return bedfile
 
 
-def get_number_of_individuals(file_names: list[str]) -> list:
-    output = []
-    for file in file_names:
-        file_pattern = re.search(r"Nr\d+", file)
-        assert file_pattern is not None
-        output.append(file_pattern.group().replace("Nr", ""))
-    return output
-
-
 def download_reference_genome(chrs: list, output_folder: str = REF_GEN_PATH) -> None:
     """Download reference genome from Ensembl.
     Save it in reference_genome folder.
