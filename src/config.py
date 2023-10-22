@@ -15,3 +15,16 @@ STATS_FOLDER = "stats"
 SIM_READS_FOLDER = "/".join([SIM_DATA_PATH, "sim_reads"])
 
 FEATURES_COMBINED_FILE = "combined.csv"
+
+TRAIN_FOLDER = "train"
+TEST_FOLDER = "test"
+
+TRAIN_FILE = "train.csv"
+TEST_FILE = "test.csv"
+
+TRAIN_PATH = "/".join([TRAIN_FOLDER, TRAIN_FILE])
+TEST_PATH = "/".join([TEST_FOLDER, TEST_FILE])
+
+BASIC_MODEL_FOLDER = "basic_model"
+BASIC_MODEL_FILE = "model.pkl"
+BASIC_MODEL_PATH = "/".join([BASIC_MODEL_FOLDER, BASIC_MODEL_FILE])
