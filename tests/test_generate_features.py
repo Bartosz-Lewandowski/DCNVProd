@@ -19,7 +19,12 @@ def tempdir():
 def gen_stats(tempdir):
     bam_file = "/".join(["./tests/test_generate_features", SIM_BAM_FILE_NAME])
     # Create the Stats object
-    stats = Stats(10, bam_file, output_folder=tempdir.name)
+    stats = Stats(
+        10,
+        bam_file,
+        output_folder=tempdir.name,
+        sim_data_path="./tests/test_generate_features",
+    )
     return stats
 
 
