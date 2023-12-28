@@ -14,7 +14,7 @@ identify==2.5.3
 idna==3.3
 InSilicoSeq==1.5.4
 isort==5.10.1
-joblib==1.1.0
+joblib==1.2.0
 kiwisolver==1.4.4
 llvmlite==0.39.0
 matplotlib==3.5.2
