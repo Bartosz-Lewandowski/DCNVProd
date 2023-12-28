@@ -5,7 +5,11 @@ from subprocess import call
 import numpy as np
 from Bio import SeqIO
 
-from src.config import MODIFIED_FASTA_FILE_PATH, SIM_READS_FOLDER
+from src.config import (
+    MODIFIED_FASTA_FILE_NAME,
+    SIM_DATA_PATH,
+    SIM_READS_FOLDER,
+)
 
 
 class SimReads:
@@ -34,7 +38,7 @@ class SimReads:
         cov: int,
         cpu: int,
         model: str = "novaseq",
-        fasta_file: str = MODIFIED_FASTA_FILE_PATH,
+        fasta_file: str = "/".join([SIM_DATA_PATH, MODIFIED_FASTA_FILE_NAME]),
         pathout: str = SIM_READS_FOLDER,
     ) -> None:
         gc.collect()

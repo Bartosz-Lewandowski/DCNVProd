@@ -9,7 +9,7 @@ from pybedtools import BedTool
 from tqdm import tqdm
 
 from .config import (
-    MODIFIED_FASTA_FILE_PATH,
+    MODIFIED_FASTA_FILE_NAME,
     REF_FASTA_FILE,
     SIM_DATA_PATH,
     TARGET_DATA_FILE_NAME,
@@ -488,9 +488,11 @@ class CNVGenerator:
             str: path to fasta file with CNV's
         """
 
-        if os.path.exists(MODIFIED_FASTA_FILE_PATH):
-            os.remove(MODIFIED_FASTA_FILE_PATH)
+        if os.path.exists("/".join([self.pathout, MODIFIED_FASTA_FILE_NAME])):
+            os.remove("/".join([self.pathout, MODIFIED_FASTA_FILE_NAME]))
 
         for id, fasta_str in fasta_modified.items():
-            with open(MODIFIED_FASTA_FILE_PATH, "a") as fasta_cnv:
+            with open(
+                "/".join([self.pathout, MODIFIED_FASTA_FILE_NAME]), "a"
+            ) as fasta_cnv:
                 fasta_cnv.write(f">{id}\n{fasta_str}\n")
