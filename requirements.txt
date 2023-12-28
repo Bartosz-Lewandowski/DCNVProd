@@ -12,6 +12,7 @@ fonttools==4.34.4
 future>=0.18.3
 identify==2.5.3
 idna==3.3
+intervaltree==3.1.0
 InSilicoSeq==1.5.4
 isort==5.10.1
 joblib==1.2.0
