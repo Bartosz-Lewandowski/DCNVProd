@@ -187,8 +187,6 @@ def test_too_large_cnvs_number(cnv_generator):
     cnv_count = len(lengths)
     min_cnv_gap = 10
     len_fasta = sum(lengths) + (cnv_count - 1) * min_cnv_gap
-    print(len_fasta)
-    print(cnv_count)
     result = cnv_generator._CNVGenerator__too_large_cnvs_number(
         len_fasta=len_fasta,
         lenghts=lengths,

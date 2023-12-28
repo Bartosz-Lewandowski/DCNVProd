@@ -60,7 +60,6 @@ def seqs_and_freqs(sample_fasta_file, dup_del_normal):
 # Test if file exits
 def test_modify_fasta_file_exists(total_files, cnv_generator, temp_dir):
     cnv_generator.modify_fasta_file(total_files[0])
-    print(temp_dir)
     assert os.path.exists(os.path.join(temp_dir.name, MODIFIED_FASTA_FILE_NAME))
 
 
@@ -69,7 +68,6 @@ def test_modify_fasta_file_correct(
     total_files, cnv_generator, temp_dir, seqs_and_freqs
 ):
     cnv_generator.modify_fasta_file(total_files[0])
-    print(seqs_and_freqs)
     with open(os.path.join(temp_dir.name, MODIFIED_FASTA_FILE_NAME)) as f:
         modified = f.read()
         for x in seqs_and_freqs:

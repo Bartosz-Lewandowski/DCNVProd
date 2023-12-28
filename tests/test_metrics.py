@@ -1,5 +1,3 @@
-import pprint
-
 import pandas as pd
 import pytest
 
@@ -60,7 +58,6 @@ def test_extract_real_cnvs(metrics):
 
 def test_extract_predicted_cnvs(metrics):
     cnvs = metrics._extract_predicted_cnvs()
-    pprint.pprint(cnvs)
     assert len(cnvs) == 28
     assert cnvs[-1] == CNV(
         cnv_type="del",

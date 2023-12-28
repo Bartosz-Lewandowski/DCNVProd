@@ -66,9 +66,11 @@ class Stats:
         cpus: int,
         bam_file: str = SIM_BAM_FILE_PATH,
         output_folder: str = STATS_FOLDER,
+        sim_data_path: str = SIM_DATA_PATH,
     ) -> None:
         self.bam_file = bam_file
         self.output_folder = output_folder
+        self.sim_data_path = sim_data_path
         self.cpus = cpus
         pysam.index(self.bam_file)
         Path(self.output_folder).mkdir(parents=True, exist_ok=True)
@@ -103,7 +105,7 @@ class Stats:
             ],
         )
         df_y = pd.read_csv(
-            "/".join([SIM_DATA_PATH, TARGET_DATA_FILE_NAME]),
+            "/".join([self.sim_data_path, TARGET_DATA_FILE_NAME]),
             sep="\t",
             dtype={"chr": object},
             header=None,
