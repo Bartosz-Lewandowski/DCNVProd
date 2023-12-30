@@ -40,11 +40,14 @@ class Train:
             "start",
             "end",
             "cnv_type",
+            "intq",
             "overlap",
             "BAM_CMATCH",
         ]
         self.results: list = []
-        self.use_mean = True
+        self.stats1 = True
+        self.stats2 = True
+        self.bam_fc = True
         self.scaler = False
         self.log = False
 
@@ -65,6 +68,9 @@ class Train:
                 "BAM_CDEL": "int16",
                 "BAM_CSOFT_CLIP": "int16",
                 "NM tag": "int16",
+                "STAT_CROSS": "float16",
+                "STAT_CROSS2": "float16",
+                "BAM_CROSS": "int16",
             },
         )
         test = sim_data[sim_data["chr"].isin([13, 7])]
@@ -80,9 +86,19 @@ class Train:
         # Get the best hyperparameters
         results_df = pd.DataFrame(self.results)
         best_params = results_df.sort_values(by="fbeta", ascending=False).iloc[0]
-        if not best_params["use_mean"]:
-            self.use_mean = False
-            X = X.drop(["means"], axis=1)
+
+        if not best_params["stats1"]:
+            self.stats1 = False
+            X = X.drop(["STAT_CROSS"], axis=1)
+
+        if not best_params["stats2"]:
+            self.stats2 = False
+            X = X.drop(["STAT_CROSS2"], axis=1)
+
+        if not best_params["bam_fc"]:
+            self.bam_fc = False
+            X = X.drop(["BAM_CROSS"], axis=1)
+
         if best_params["undersampling"]:
             X, y = self.__undersample(X, y)
         if best_params["scaler"] == "StandardScaler":
@@ -121,8 +137,14 @@ class Train:
 
     def evaluate_on_test_data(self):
         X_test, y_test = self._load_test_files()
-        if not self.use_mean:
-            X_test = X_test.drop(["means"], axis=1)
+        if not self.stats1:
+            X_test = X_test.drop(["STAT_CROSS"], axis=1)
+
+        if not self.stats2:
+            X_test = X_test.drop(["STAT_CROSS2"], axis=1)
+
+        if not self.bam_fc:
+            X_test = X_test.drop(["BAM_CROSS"], axis=1)
 
         if self.scaler:
             X_test, _ = self.__scale_standard_scaler(X_test, X_test)
@@ -137,7 +159,7 @@ class Train:
         df["pred"] = pred_str
         metrics = CNVMetric(df)
         metrics_res = metrics.get_metrics()
-        with open("metrics.txt", "a") as f:
+        with open("metrics_feature_crossing.txt", "a") as f:
             print(
                 f"FBETA SCORE: {fbeta_score(y_test, pred, beta = 3, average='macro')}",
                 file=f,
@@ -149,26 +171,33 @@ class Train:
     # Define the objective function to optimize
     def _objective(self, trial, X, y):
         # Define the hyperparameters to search over
-        model_type = trial.suggest_categorical(
-            "model_type", ["XGBoost", "LightGBM", "RandomForest"]
-        )
+        model_type = trial.suggest_categorical("model_type", ["RandomForest"])
         max_depth = trial.suggest_int("max_depth", 20, 200, step=20)
         class_weight = trial.suggest_categorical(
             "class_weight", [None, "balanced", {0: 3, 1: 3, 2: 1}]
         )
-        scaler = trial.suggest_categorical("scaler", ["StandardScaler", "log", None])
-        undersampling = trial.suggest_categorical("undersampling", [True, False])
-        use_mean = trial.suggest_categorical("use_mean", [True, False])
+        scaler = trial.suggest_categorical("scaler", ["log"])
+        undersampling = trial.suggest_categorical("undersampling", [False])
+        stats1 = trial.suggest_categorical("stats1", [False])
+        stats2 = trial.suggest_categorical("stats2", [True])
+        bam_fc = trial.suggest_categorical("bam_fc", [True])
 
         avg_fbeta = 0
         skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
         for train_index, test_index in skf.split(X, y):
             X_train, X_test = X.iloc[train_index], X.iloc[test_index]
             y_train, y_test = y[train_index], y[test_index]
+            if not stats1:
+                X_train = X_train.drop(["STAT_CROSS"], axis=1)
+                X_test = X_test.drop(["STAT_CROSS"], axis=1)
 
-            if not use_mean:
-                X_train = X_train.drop(["means"], axis=1)
-                X_test = X_test.drop(["means"], axis=1)
+            if not stats2:
+                X_train = X_train.drop(["STAT_CROSS2"], axis=1)
+                X_test = X_test.drop(["STAT_CROSS2"], axis=1)
+
+            if not bam_fc:
+                X_train = X_train.drop(["BAM_CROSS"], axis=1)
+                X_test = X_test.drop(["BAM_CROSS"], axis=1)
 
             # Preprocess the data based on hyperparameters
             if undersampling:
@@ -261,7 +290,9 @@ class Train:
                 "class_weight": class_weight,
                 "scaler": scaler,
                 "undersampling": undersampling,
-                "use_mean": use_mean,
+                "stats1": stats1,
+                "stats2": stats2,
+                "bam_fc": bam_fc,
                 "params": params,
                 "fbeta": avg_fbeta / 3,
             }
