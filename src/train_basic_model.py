@@ -70,7 +70,7 @@ class Train:
                 "NM tag": "int16",
                 "STAT_CROSS": "float16",
                 "STAT_CROSS2": "float16",
-                "BAM_CROSS": "int16",
+                "BAM_CROSS": "int64",
             },
         )
         test = sim_data[sim_data["chr"].isin([13, 7])]
@@ -171,16 +171,18 @@ class Train:
     # Define the objective function to optimize
     def _objective(self, trial, X, y):
         # Define the hyperparameters to search over
-        model_type = trial.suggest_categorical("model_type", ["RandomForest"])
+        model_type = trial.suggest_categorical(
+            "model_type", ["LightGBM", "XGBoost", "RandomForest"]
+        )
         max_depth = trial.suggest_int("max_depth", 20, 200, step=20)
         class_weight = trial.suggest_categorical(
             "class_weight", [None, "balanced", {0: 3, 1: 3, 2: 1}]
         )
-        scaler = trial.suggest_categorical("scaler", ["log"])
-        undersampling = trial.suggest_categorical("undersampling", [False])
-        stats1 = trial.suggest_categorical("stats1", [False])
-        stats2 = trial.suggest_categorical("stats2", [True])
-        bam_fc = trial.suggest_categorical("bam_fc", [True])
+        scaler = trial.suggest_categorical("scaler", ["StandardScaler", "log"])
+        undersampling = trial.suggest_categorical("undersampling", [True, False])
+        stats1 = trial.suggest_categorical("stats1", [True, False])
+        stats2 = trial.suggest_categorical("stats2", [True, False])
+        bam_fc = trial.suggest_categorical("bam_fc", [True, False])
 
         avg_fbeta = 0
         skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
