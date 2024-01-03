@@ -102,6 +102,9 @@ class Stats:
                 "BAM_CDEL",
                 "BAM_CSOFT_CLIP",
                 "NM tag",
+                "BAM_CROSS",
+                "STAT_CROSS",
+                "STAT_CROSS2",
             ],
         )
         df_y = pd.read_csv(
@@ -204,7 +207,8 @@ class Stats:
             cov_all = fastest_sum(cov)
             stats = numba_calc(cov_all)
             cigar = self._get_cigar_stats(refname, start, end, bam)
-            out = [refname, start, end, overlap, intq, *stats, *cigar]
+            feature_crosses = self.feature_crossing(cigar, stats)
+            out = [refname, start, end, overlap, intq, *stats, *cigar, *feature_crosses]
         return out
 
     def _get_cigar_stats(self, chr: str, start: int, end: int, bam) -> list:
@@ -232,3 +236,20 @@ class Stats:
         if isinstance(cigar, float):
             cigar = [0 for _ in range(11)]
         return [cigar[0], cigar[1], cigar[2], cigar[4], cigar[-1]]
+
+    def feature_crossing(self, cigar_stats: list, cov_stats: list) -> list:
+        """
+        Crosses cigar stats and coverage stats.
+
+        Args:
+            cigar_stats (list): list of cigar stats
+            cov_stats (list): list of coverage stats
+
+        Returns:
+            list: list of crossed stats
+        """
+        bam_cross = abs(np.prod(cigar_stats))
+        mean, std = cov_stats
+        cov1_cross = mean / (std + 0.0001)
+        cov2_cross = mean * std
+        return [bam_cross, cov1_cross, cov2_cross]

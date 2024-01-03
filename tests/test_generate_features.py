@@ -58,6 +58,9 @@ def test_expect_table_columns_to_match_ordered_list(df):
             "BAM_CDEL",
             "BAM_CSOFT_CLIP",
             "NM tag",
+            "BAM_CROSS",
+            "STAT_CROSS",
+            "STAT_CROSS2",
             "cnv_type",
         ]
     )
@@ -76,6 +79,9 @@ def test_expect_column_values_to_be_of_type(df):
     df.expect_column_values_to_be_of_type("BAM_CDEL", "int64")
     df.expect_column_values_to_be_of_type("BAM_CSOFT_CLIP", "int64")
     df.expect_column_values_to_be_of_type("NM tag", "int64")
+    df.expect_column_values_to_be_of_type("BAM_CROSS", "int64")
+    df.expect_column_values_to_be_of_type("STAT_CROSS", "float64")
+    df.expect_column_values_to_be_of_type("STAT_CROSS2", "float64")
     df.expect_column_values_to_be_of_type("cnv_type", "object")
 
 
@@ -107,6 +113,9 @@ def test_column_values_to_not_be_null(df):
     df.expect_column_values_to_not_be_null("BAM_CDEL")
     df.expect_column_values_to_not_be_null("BAM_CSOFT_CLIP")
     df.expect_column_values_to_not_be_null("NM tag")
+    df.expect_column_values_to_not_be_null("BAM_CROSS")
+    df.expect_column_values_to_not_be_null("STAT_CROSS")
+    df.expect_column_values_to_not_be_null("STAT_CROSS2")
     df.expect_column_values_to_not_be_null("cnv_type")
 
 
