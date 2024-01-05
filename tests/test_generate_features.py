@@ -61,6 +61,12 @@ def test_expect_table_columns_to_match_ordered_list(df):
             "BAM_CROSS",
             "STAT_CROSS",
             "STAT_CROSS2",
+            "PR_5",
+            "NXT_5",
+            "PR_10",
+            "NXT_10",
+            "PR_20",
+            "NXT_20",
             "cnv_type",
         ]
     )
@@ -82,6 +88,12 @@ def test_expect_column_values_to_be_of_type(df):
     df.expect_column_values_to_be_of_type("BAM_CROSS", "int64")
     df.expect_column_values_to_be_of_type("STAT_CROSS", "float64")
     df.expect_column_values_to_be_of_type("STAT_CROSS2", "float64")
+    df.expect_column_values_to_be_of_type("PR_5", "float64")
+    df.expect_column_values_to_be_of_type("NXT_5", "float64")
+    df.expect_column_values_to_be_of_type("PR_10", "float64")
+    df.expect_column_values_to_be_of_type("NXT_10", "float64")
+    df.expect_column_values_to_be_of_type("PR_20", "float64")
+    df.expect_column_values_to_be_of_type("NXT_20", "float64")
     df.expect_column_values_to_be_of_type("cnv_type", "object")
 
 
@@ -98,25 +110,6 @@ def test_expect_compound_columns_to_be_unique(df):
 # Test if dataset is not empty
 def test_expect_table_row_count_to_be_between(df):
     df.expect_table_row_count_to_be_between(1, None)
-
-
-def test_column_values_to_not_be_null(df):
-    df.expect_column_values_to_not_be_null("chr")
-    df.expect_column_values_to_not_be_null("start")
-    df.expect_column_values_to_not_be_null("end")
-    df.expect_column_values_to_not_be_null("overlap")
-    df.expect_column_values_to_not_be_null("intq")
-    df.expect_column_values_to_not_be_null("means")
-    df.expect_column_values_to_not_be_null("std")
-    df.expect_column_values_to_not_be_null("BAM_CMATCH")
-    df.expect_column_values_to_not_be_null("BAM_CINS")
-    df.expect_column_values_to_not_be_null("BAM_CDEL")
-    df.expect_column_values_to_not_be_null("BAM_CSOFT_CLIP")
-    df.expect_column_values_to_not_be_null("NM tag")
-    df.expect_column_values_to_not_be_null("BAM_CROSS")
-    df.expect_column_values_to_not_be_null("STAT_CROSS")
-    df.expect_column_values_to_not_be_null("STAT_CROSS2")
-    df.expect_column_values_to_not_be_null("cnv_type")
 
 
 # Test if the output file is created

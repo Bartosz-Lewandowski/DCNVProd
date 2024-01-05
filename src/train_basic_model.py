@@ -1,5 +1,6 @@
 import os
 import pickle
+from typing import Union
 
 import numpy as np
 import optuna
@@ -100,7 +101,7 @@ class Train:
 
         if not best_params["prev_and_next"]:
             self.prev_and_next = False
-            X = X.drop(["PR_10", "NXT_10"], axis=1)
+            X = X.drop(["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1)
 
         if best_params["scaler"] == "log":
             self.log = True
@@ -145,7 +146,9 @@ class Train:
             X_test = X_test.drop(["BAM_CROSS"], axis=1)
 
         if not self.prev_and_next:
-            X_test = X_test.drop(["PR_10", "NXT_10"], axis=1)
+            X_test = X_test.drop(
+                ["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1
+            )
 
         if self.log:
             X_test, _ = self.__log_transform(X_test, X_test)
@@ -207,8 +210,12 @@ class Train:
                 X_test = X_test.drop(["BAM_CROSS"], axis=1)
 
             if not prev_and_next:
-                X_train = X_train.drop(["PR_10", "NXT_10"], axis=1)
-                X_test = X_test.drop(["PR_10", "NXT_10"], axis=1)
+                X_train = X_train.drop(
+                    ["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1
+                )
+                X_test = X_test.drop(
+                    ["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1
+                )
 
             if scaler == "log":
                 X_train, x_test_res = self.__log_transform(X_train, X_test)
@@ -242,7 +249,7 @@ class Train:
                     max_depth, class_weight, n_estimators, params
                 )
             elif model_type == "XGBoost":
-                n_estimators = trial.suggest_int("n_estimators", 20, 140, step=20)
+                n_estimators = trial.suggest_int("n_estimators", 20, 80, step=20)
                 params = {
                     "verbosity": 0,
                     "booster": trial.suggest_categorical("booster", ["gbtree", "dart"]),
@@ -303,7 +310,11 @@ class Train:
         return avg_fbeta / 3
 
     def __get_random_forest_model(
-        self, max_depth: int, class_weight: str, n_estimators: int, params: dict
+        self,
+        max_depth: int,
+        class_weight: Union[str, dict, None],
+        n_estimators: int,
+        params: dict,
     ) -> RandomForestClassifier:
         model = RandomForestClassifier(
             n_estimators=n_estimators,
@@ -316,7 +327,11 @@ class Train:
         return model
 
     def __get_xgboost_model(
-        self, max_depth: int, class_weight: str, n_estimators: int, params: dict
+        self,
+        max_depth: int,
+        class_weight: Union[str, dict, None],
+        n_estimators: int,
+        params: dict,
     ) -> XGBClassifier:
         model = XGBClassifier(
             n_estimators=n_estimators,
@@ -329,10 +344,12 @@ class Train:
         return model
 
     def __get_lightgbm_model(
-        self, max_depth: int, class_weight: str, n_estimators: int, params: dict
+        self,
+        max_depth: int,
+        class_weight: Union[str, dict, None],
+        n_estimators: int,
+        params: dict,
     ) -> LGBMClassifier:
-        print(class_weight)
-        print(type(class_weight))
         model = LGBMClassifier(
             n_estimators=n_estimators,
             max_depth=max_depth,

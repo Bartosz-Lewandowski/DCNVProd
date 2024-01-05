@@ -116,6 +116,12 @@ class Stats:
         )
 
         df = pd.merge(df_X, df_y, on=["chr", "start", "end"])
+        df["NXT_5"] = df["means"].rolling(5, min_periods=1).sum().shift(-5).fillna(0)
+        df["PR_5"] = df["means"].rolling(5, min_periods=1).sum().shift(5).fillna(0)
+        df["NXT_10"] = df["means"].rolling(10, min_periods=1).sum().shift(-10).fillna(0)
+        df["PR_10"] = df["means"].rolling(10, min_periods=1).sum().shift(10).fillna(0)
+        df["NXT_20"] = df["means"].rolling(20, min_periods=1).sum().shift(-20).fillna(0)
+        df["PR_20"] = df["means"].rolling(20, min_periods=1).sum().shift(20).fillna(0)
         df.to_csv(training_file, index=False)
 
     def generate_stats(self, chrs: list, window_size: int) -> list:
