@@ -4,7 +4,6 @@ import pickle
 import numpy as np
 import optuna
 import pandas as pd
-from imblearn.under_sampling import RandomUnderSampler
 from lightgbm import LGBMClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
@@ -13,7 +12,7 @@ from sklearn.metrics import (
     fbeta_score,
 )
 from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBClassifier
 
 from .config import (
@@ -48,7 +47,7 @@ class Train:
         self.stats1 = True
         self.stats2 = True
         self.bam_fc = True
-        self.scaler = False
+        self.prev_and_next = True
         self.log = False
 
     def prepare_data(self) -> None:
@@ -81,7 +80,7 @@ class Train:
     def train(self):
         X, y = self._load_train_files()
         study = optuna.create_study(direction="maximize")
-        study.optimize(lambda trial: self._objective(trial, X, y), timeout=3600 * 12)
+        study.optimize(lambda trial: self._objective(trial, X, y), timeout=3600 * 3)
 
         # Get the best hyperparameters
         results_df = pd.DataFrame(self.results)
@@ -99,12 +98,11 @@ class Train:
             self.bam_fc = False
             X = X.drop(["BAM_CROSS"], axis=1)
 
-        if best_params["undersampling"]:
-            X, y = self.__undersample(X, y)
-        if best_params["scaler"] == "StandardScaler":
-            self.scaler = True
-            X, _ = self.__scale_standard_scaler(X, X)
-        elif best_params["scaler"] == "log":
+        if not best_params["prev_and_next"]:
+            self.prev_and_next = False
+            X = X.drop(["PR_10", "NXT_10"], axis=1)
+
+        if best_params["scaler"] == "log":
             self.log = True
             X, _ = self.__log_transform(X, X)
 
@@ -146,8 +144,8 @@ class Train:
         if not self.bam_fc:
             X_test = X_test.drop(["BAM_CROSS"], axis=1)
 
-        if self.scaler:
-            X_test, _ = self.__scale_standard_scaler(X_test, X_test)
+        if not self.prev_and_next:
+            X_test = X_test.drop(["PR_10", "NXT_10"], axis=1)
 
         if self.log:
             X_test, _ = self.__log_transform(X_test, X_test)
@@ -176,13 +174,20 @@ class Train:
         )
         max_depth = trial.suggest_int("max_depth", 20, 200, step=20)
         class_weight = trial.suggest_categorical(
-            "class_weight", [None, "balanced", {0: 3, 1: 3, 2: 1}]
+            "class_weight",
+            [
+                None,
+                "balanced",
+                {0: 3, 1: 3, 2: 1},
+                {0: 4, 1: 4, 2: 1},
+                {0: 3, 1: 5, 2: 1},
+            ],
         )
-        scaler = trial.suggest_categorical("scaler", ["StandardScaler", "log"])
-        undersampling = trial.suggest_categorical("undersampling", [True, False])
+        scaler = trial.suggest_categorical("scaler", ["log", None])
         stats1 = trial.suggest_categorical("stats1", [True, False])
         stats2 = trial.suggest_categorical("stats2", [True, False])
         bam_fc = trial.suggest_categorical("bam_fc", [True, False])
+        prev_and_next = trial.suggest_categorical("prev_and_next", [True, False])
 
         avg_fbeta = 0
         skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
@@ -201,16 +206,12 @@ class Train:
                 X_train = X_train.drop(["BAM_CROSS"], axis=1)
                 X_test = X_test.drop(["BAM_CROSS"], axis=1)
 
-            # Preprocess the data based on hyperparameters
-            if undersampling:
-                X_res, y_res = self.__undersample(X_train, y_train)
-            else:
-                X_res, y_res = X_train, y_train
+            if not prev_and_next:
+                X_train = X_train.drop(["PR_10", "NXT_10"], axis=1)
+                X_test = X_test.drop(["PR_10", "NXT_10"], axis=1)
 
-            if scaler == "StandardScaler":
-                X_res, x_test_res = self.__scale_standard_scaler(X_res, X_test)
-            elif scaler == "log":
-                X_res, x_test_res = self.__log_transform(X_res, X_test)
+            if scaler == "log":
+                X_train, x_test_res = self.__log_transform(X_train, X_test)
             else:
                 x_test_res = X_test
 
@@ -275,7 +276,7 @@ class Train:
                 )
 
             # Trenowanie modelu
-            model.fit(X_res, y_res)
+            model.fit(X_train, y_train)
 
             # Przewidywanie na zbiorze testowym
 
@@ -291,10 +292,10 @@ class Train:
                 "max_depth": max_depth,
                 "class_weight": class_weight,
                 "scaler": scaler,
-                "undersampling": undersampling,
                 "stats1": stats1,
                 "stats2": stats2,
                 "bam_fc": bam_fc,
+                "prev_and_next": prev_and_next,
                 "params": params,
                 "fbeta": avg_fbeta / 3,
             }
@@ -330,6 +331,8 @@ class Train:
     def __get_lightgbm_model(
         self, max_depth: int, class_weight: str, n_estimators: int, params: dict
     ) -> LGBMClassifier:
+        print(class_weight)
+        print(type(class_weight))
         model = LGBMClassifier(
             n_estimators=n_estimators,
             max_depth=max_depth,
@@ -362,22 +365,6 @@ class Train:
         X_train = np.log1p(X_train)
         x_test = np.log1p(x_test)
         return X_train, x_test
-
-    def __scale_standard_scaler(
-        self, X_train: pd.DataFrame, x_test: pd.DataFrame
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        s = StandardScaler()
-        X_train = s.fit_transform(X_train)
-        x_test = s.transform(x_test)
-        return X_train, x_test
-
-    def __undersample(
-        self, X_train: pd.DataFrame, y_train: pd.Series
-    ) -> tuple[pd.DataFrame, pd.Series]:
-
-        under = RandomUnderSampler(sampling_strategy="majority", random_state=42)
-        X_res, y_res = under.fit_resample(X_train, y_train)
-        return X_res, y_res
 
     def _perform_eda(self, df: pd.DataFrame):
         with open("plots/EDA_train.txt", "w") as f:
