@@ -50,6 +50,7 @@ class Train:
         self.bam_fc = True
         self.prev_and_next = True
         self.log = False
+        self.best_score: float = 0.0
 
     def prepare_data(self) -> None:
         sim_data = pd.read_csv(
@@ -81,7 +82,7 @@ class Train:
     def train(self):
         X, y = self._load_train_files()
         study = optuna.create_study(direction="maximize")
-        study.optimize(lambda trial: self._objective(trial, X, y), timeout=3600 * 3)
+        study.optimize(lambda trial: self._objective(trial, X, y), timeout=3600 * 15)
 
         # Get the best hyperparameters
         results_df = pd.DataFrame(self.results)
@@ -194,6 +195,7 @@ class Train:
 
         avg_fbeta = 0
         skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+        first_run = True
         for train_index, test_index in skf.split(X, y):
             X_train, X_test = X.iloc[train_index], X.iloc[test_index]
             y_train, y_test = y[train_index], y[test_index]
@@ -290,6 +292,30 @@ class Train:
             y_pred = model.predict(x_test_res)
             fbeta = fbeta_score(y_test, y_pred, beta=3, average="macro")
             print(fbeta)
+
+            if first_run and fbeta < self.best_score:
+                self.results.append(
+                    {
+                        "model": model_type,
+                        "n_estimators": n_estimators,
+                        "max_depth": max_depth,
+                        "class_weight": class_weight,
+                        "scaler": scaler,
+                        "stats1": stats1,
+                        "stats2": stats2,
+                        "bam_fc": bam_fc,
+                        "prev_and_next": prev_and_next,
+                        "params": params,
+                        "fbeta": avg_fbeta,
+                    }
+                )
+                return fbeta
+            elif fbeta > self.best_score:
+                first_run = False
+                self.best_score = fbeta
+            else:
+                first_run = False
+
             avg_fbeta += fbeta
 
         self.results.append(
