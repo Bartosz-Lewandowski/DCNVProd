@@ -86,48 +86,48 @@ class Train:
 
         # Get the best hyperparameters
         results_df = pd.DataFrame(self.results)
-        best_params = results_df.sort_values(by="fbeta", ascending=False).iloc[0]
+        self.best_params = results_df.sort_values(by="fbeta", ascending=False).iloc[0]
 
-        if not best_params["stats1"]:
+        if not self.best_params["stats1"]:
             self.stats1 = False
             X = X.drop(["STAT_CROSS"], axis=1)
 
-        if not best_params["stats2"]:
+        if not self.best_params["stats2"]:
             self.stats2 = False
             X = X.drop(["STAT_CROSS2"], axis=1)
 
-        if not best_params["bam_fc"]:
+        if not self.best_params["bam_fc"]:
             self.bam_fc = False
             X = X.drop(["BAM_CROSS"], axis=1)
 
-        if not best_params["prev_and_next"]:
+        if not self.best_params["prev_and_next"]:
             self.prev_and_next = False
             X = X.drop(["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1)
 
-        if best_params["scaler"] == "log":
+        if self.best_params["scaler"] == "log":
             self.log = True
             X, _ = self.__log_transform(X, X)
 
-        if best_params["model"] == "XGBoost":
+        if self.best_params["model"] == "XGBoost":
             best_model = self.__get_xgboost_model(
-                best_params["max_depth"],
-                best_params["class_weight"],
-                best_params["n_estimators"],
-                best_params["params"],
+                self.best_params["max_depth"],
+                self.best_params["class_weight"],
+                self.best_params["n_estimators"],
+                self.best_params["params"],
             )
-        elif best_params["model"] == "LightGBM":
+        elif self.best_params["model"] == "LightGBM":
             best_model = self.__get_lightgbm_model(
-                best_params["max_depth"],
-                best_params["class_weight"],
-                best_params["n_estimators"],
-                best_params["params"],
+                self.best_params["max_depth"],
+                self.best_params["class_weight"],
+                self.best_params["n_estimators"],
+                self.best_params["params"],
             )
-        elif best_params["model"] == "RandomForest":
+        elif self.best_params["model"] == "RandomForest":
             best_model = self.__get_random_forest_model(
-                best_params["max_depth"],
-                best_params["class_weight"],
-                best_params["n_estimators"],
-                best_params["params"],
+                self.best_params["max_depth"],
+                self.best_params["class_weight"],
+                self.best_params["n_estimators"],
+                self.best_params["params"],
             )
 
         best_model.fit(X, y)
@@ -161,7 +161,9 @@ class Train:
         df["pred"] = pred_str
         metrics = CNVMetric(df)
         metrics_res = metrics.get_metrics()
-        with open("metrics_feature_crossing.txt", "a") as f:
+        with open("../results/ML_model.txt", "a") as f:
+            print("ML MODEL", file=f)
+            print(f"Params: {self.best_params}", file=f)
             print(
                 f"FBETA SCORE: {fbeta_score(y_test, pred, beta = 3, average='macro')}",
                 file=f,
