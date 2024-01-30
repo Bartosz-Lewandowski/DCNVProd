@@ -126,7 +126,9 @@ def test_numba_calc(cov_summed):
     assert isinstance(result, list)
     assert len(result) == 2
 
-    # Check if the mean and std values are close to the expected values
+
+def test_numba_calc_results_are_as_expected(cov_summed):
+    result = numba_calc(cov_summed)
     expected_mean = sum(cov_summed) / len(cov_summed)
     variance = sum((x - expected_mean) ** 2 for x in cov_summed) / len(cov_summed)
     expected_std = variance**0.5
