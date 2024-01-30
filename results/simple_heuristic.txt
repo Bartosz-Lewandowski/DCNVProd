@@ -1,0 +1,10 @@
+Simple heuristic
+FBeta score: 0.6105575803600632
+CNV metrics:
+predicted_correctly: {'dup': 0, 'del': 0}
+predicted_half_correctly: {'dup': 0, 'del': 0}
+intersected_half_correctly: {'dup': 0, 'del': 0}
+predicted_incorrectly: 1050540
+prediction_cov: 0.11831895002038585
+all_true_cnvs: 1721
+all_predicted_cnvs: 1377900
