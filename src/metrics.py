@@ -112,6 +112,14 @@ class CNVMetric:
             ),
         }
 
+    def base_metric(self, w: float) -> float:
+        res = self.get_metrics()
+        return (
+            (1 + w) * res["prediction_cov"]
+            - (res["predicted_incorrectly"] / res["all_predicted_cnvs"])
+            + 1
+        ) / (2 + w)
+
     def _extract_real_cnvs(self):
         current_type = self.df["cnv_type"][0]
         start = self.df["start"][0]
