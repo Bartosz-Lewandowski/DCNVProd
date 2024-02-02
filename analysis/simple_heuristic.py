@@ -39,7 +39,7 @@ def get_CNV_metric_results(
     df_preds = pd.DataFrame({"cnv_type": y_test_str, "pred": pred_str})
     df = pd.concat([X_test, df_preds], axis=1)
     CNV_metric = CNVMetric(df)
-    return CNV_metric.get_metrics()
+    return CNV_metric
 
 
 if __name__ == "__main__":
@@ -51,10 +51,13 @@ if __name__ == "__main__":
         random.choices([0, 1, 2], weights=list(probs.values()), k=1)[0]
         for _ in range(len(y_test))
     ]
-    cnv_metrics = get_CNV_metric_results(X_test, y_test, y_preds, lbl_e)
+    metrics = get_CNV_metric_results(X_test, y_test, y_preds, lbl_e)
+    cnv_metrics = metrics.get_metrics()
+    cnv_metric = metrics.base_metric(2)
 
     with open("../results/simple_heuristic.txt", "w") as f:
         f.write("Simple heuristic\n")
+        f.write(f"CNV base metric: {cnv_metric}\n")
         f.write(
             f"FBeta score: {fbeta_score(y_test, y_preds, beta=3, average='weighted')}\n"
         )
