@@ -1,3 +1,6 @@
+from unittest.mock import patch
+
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -22,6 +25,48 @@ def cnvs(metrics):
     predicted_cnvs = metrics._extract_predicted_cnvs()
     cnvs = metrics._get_childs_intersecting_and_incorrect(real_cnvs, predicted_cnvs)
     return cnvs
+
+
+@pytest.mark.parametrize("w", np.linspace(-10, 100, 100))
+def test_base_metric_in_range(metrics, w):
+    base_metric = metrics.base_metric(w)
+    assert 0 <= base_metric <= 1
+
+
+@pytest.fixture
+def mock_get_metrics_best():
+    return {
+        "predicted_incorrectly": 0,
+        "prediction_cov": 1.0,
+        "all_true_cnvs": 20,
+        "all_predicted_cnvs": 25,
+    }
+
+
+def test_base_metric_best(mock_get_metrics_best):
+    with patch.object(CNVMetric, "get_metrics", return_value=mock_get_metrics_best):
+        cnv_metric = CNVMetric(None)  # Pass whatever dataframe you want for testing
+        w = 2  # or any other value you want to test
+        result = cnv_metric.base_metric(w)
+        assert result == 1.0
+
+
+@pytest.fixture
+def mock_get_metrics_worst():
+    return {
+        "predicted_incorrectly": 25,
+        "prediction_cov": 0.0,
+        "all_true_cnvs": 20,
+        "all_predicted_cnvs": 25,
+    }
+
+
+def test_base_metric_worst(mock_get_metrics_worst):
+    with patch.object(CNVMetric, "get_metrics", return_value=mock_get_metrics_worst):
+        cnv_metric = CNVMetric(None)  # Pass whatever dataframe you want for testing
+        w = 2  # or any other value you want to test
+        result = cnv_metric.base_metric(w)
+        assert result == 0.0
 
 
 def test_extract_real_cnvs(metrics):
