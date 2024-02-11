@@ -9,14 +9,18 @@ from lightgbm import LGBMClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.preprocessing import LabelEncoder, label_binarize
 from xgboost import XGBClassifier
+
+from analysis.plots import plot_PR
 
 from .metrics import CNVMetric
 from .paths import (
     BASIC_MODEL_FOLDER,
     BASIC_MODEL_PATH,
     FEATURES_COMBINED_FILE,
+    OVR_BASIC_MODEL_PATH,
     STATS_FOLDER,
     TEST_FOLDER,
     TEST_PATH,
@@ -128,6 +132,12 @@ class Train:
 
         best_model.fit(X, y)
         os.makedirs(BASIC_MODEL_FOLDER, exist_ok=True)
+        if self.eda:
+            y_bin = label_binarize(y, classes=[*range(3)])
+            one_vs_rest_model = OneVsRestClassifier(best_model)
+            one_vs_rest_model.fit(X, y_bin)
+            with open(OVR_BASIC_MODEL_PATH, "wb") as f:
+                pickle.dump(one_vs_rest_model, f)
         with open(BASIC_MODEL_PATH, "wb") as f:
             pickle.dump(best_model, f)
 
@@ -157,7 +167,9 @@ class Train:
         df["pred"] = pred_str
         metrics = CNVMetric(df)
         metrics_res = metrics.get_metrics()
-        with open("../results/ML_model.txt", "a") as f:
+        if self.eda:
+            self._get_precision_recall_curve(X_test, y_test)
+        with open("results/ML_model.txt", "a") as f:
             print("ML MODEL", file=f)
             print(f"Params: {self.best_params}", file=f)
             print(
@@ -244,7 +256,7 @@ class Train:
                 max_depth, class_weight, n_estimators, params
             )
         elif model_type == "XGBoost":
-            n_estimators = trial.suggest_int("n_estimators", 20, 80, step=20)
+            n_estimators = trial.suggest_int("n_estimators", 10, 80, step=10)
             params = {
                 "verbosity": 0,
                 "booster": trial.suggest_categorical("booster", ["gbtree", "dart"]),
@@ -332,6 +344,7 @@ class Train:
             scale_pos_weight=class_weight,
             random_state=42,
             n_jobs=-1,
+            num_class=3,
             **params,
         )
         return model
@@ -386,3 +399,9 @@ class Train:
     def _create_train_test_folders(self):
         os.makedirs(TRAIN_FOLDER, exist_ok=True)
         os.makedirs(TEST_FOLDER, exist_ok=True)
+
+    def _get_precision_recall_curve(self, X_test: pd.DataFrame, y_test: np.ndarray):
+        model = pickle.load(open(OVR_BASIC_MODEL_PATH, "rb"))
+        y_score = model.predict(X_test)
+        y_true = label_binarize(y_test, classes=[*range(3)])
+        plot_PR(y_true, y_score)

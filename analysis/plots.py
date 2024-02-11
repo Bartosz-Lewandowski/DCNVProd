@@ -5,6 +5,7 @@ import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from sklearn.metrics import precision_recall_curve
 
 
 def plot_count(feature, data, name):
@@ -79,3 +80,18 @@ def plot_confustion_matrix(cm: np.ndarray):
     ax.xaxis.set_ticklabels(["0", "1", "2"])
     ax.yaxis.set_ticklabels(["0", "1", "2"])
     plt.plot()
+
+
+def plot_PR(y_true: np.ndarray, y_score: np.ndarray):
+    classes = ["del", "dup", "normal"]
+    precision = dict()
+    recall = dict()
+    for i in range(len(classes)):
+        precision[i], recall[i], _ = precision_recall_curve(y_true[:, i], y_score[:, i])
+        plt.plot(recall[i], precision[i], lw=2, label="class {}".format(classes[i]))
+
+    plt.xlabel("recall")
+    plt.ylabel("precision")
+    plt.legend(loc="best")
+    plt.title("precision vs. recall curve")
+    plt.savefig("plots/PR.png")
