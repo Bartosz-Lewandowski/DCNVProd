@@ -11,7 +11,7 @@ from numba import jit
 from scipy import stats as st
 from tqdm import tqdm
 
-from src.config import (
+from src.paths import (
     FEATURES_COMBINED_FILE,
     SIM_BAM_FILE_PATH,
     SIM_DATA_PATH,

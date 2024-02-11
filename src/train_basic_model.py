@@ -7,16 +7,13 @@ import optuna
 import pandas as pd
 from lightgbm import LGBMClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import (
-    classification_report,
-    confusion_matrix,
-    fbeta_score,
-)
+from sklearn.metrics import classification_report, confusion_matrix, f1_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBClassifier
 
-from .config import (
+from .metrics import CNVMetric
+from .paths import (
     BASIC_MODEL_FOLDER,
     BASIC_MODEL_PATH,
     FEATURES_COMBINED_FILE,
@@ -26,7 +23,6 @@ from .config import (
     TRAIN_FOLDER,
     TRAIN_PATH,
 )
-from .metrics import CNVMetric
 
 
 class Train:
@@ -86,7 +82,7 @@ class Train:
 
         # Get the best hyperparameters
         results_df = pd.DataFrame(self.results)
-        self.best_params = results_df.sort_values(by="fbeta", ascending=False).iloc[0]
+        self.best_params = results_df.sort_values(by="f1", ascending=False).iloc[0]
 
         if not self.best_params["stats1"]:
             self.stats1 = False
@@ -165,7 +161,7 @@ class Train:
             print("ML MODEL", file=f)
             print(f"Params: {self.best_params}", file=f)
             print(
-                f"FBETA SCORE: {fbeta_score(y_test, pred, beta = 3, average='macro')}",
+                f"F1 SCORE: {f1_score(y_test, pred, average='macro')}",
                 file=f,
             )
             print(classification_report(y_test, pred, zero_division=True), file=f)
@@ -195,7 +191,7 @@ class Train:
         bam_fc = trial.suggest_categorical("bam_fc", [True, False])
         prev_and_next = trial.suggest_categorical("prev_and_next", [True, False])
 
-        avg_fbeta = 0
+        avgf1 = 0
         skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
         first_run = True
         for train_index, test_index in skf.split(X, y):
@@ -292,10 +288,10 @@ class Train:
             # Przewidywanie na zbiorze testowym
 
             y_pred = model.predict(x_test_res)
-            fbeta = fbeta_score(y_test, y_pred, beta=3, average="macro")
-            print(fbeta)
+            f1 = f1_score(y_test, y_pred, average="macro")
+            print(f1)
 
-            if first_run and fbeta < self.best_score:
+            if first_run and f1 < self.best_score:
                 self.results.append(
                     {
                         "model": model_type,
@@ -308,17 +304,17 @@ class Train:
                         "bam_fc": bam_fc,
                         "prev_and_next": prev_and_next,
                         "params": params,
-                        "fbeta": avg_fbeta,
+                        "f1": avgf1,
                     }
                 )
-                return fbeta
-            elif fbeta > self.best_score:
+                return f1
+            elif f1 > self.best_score:
                 first_run = False
-                self.best_score = fbeta
+                self.best_score = f1
             else:
                 first_run = False
 
-            avg_fbeta += fbeta
+            avgf1 += f1
 
         self.results.append(
             {
@@ -332,10 +328,10 @@ class Train:
                 "bam_fc": bam_fc,
                 "prev_and_next": prev_and_next,
                 "params": params,
-                "fbeta": avg_fbeta / 3,
+                "f1": avgf1 / 3,
             }
         )
-        return avg_fbeta / 3
+        return avgf1 / 3
 
     def __get_random_forest_model(
         self,

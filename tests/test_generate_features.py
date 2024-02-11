@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.config import FEATURES_COMBINED_FILE, SIM_BAM_FILE_NAME
 from src.generate_features import Stats, fastest_sum, numba_calc
+from src.paths import FEATURES_COMBINED_FILE, SIM_BAM_FILE_NAME
 
 
 @pytest.fixture

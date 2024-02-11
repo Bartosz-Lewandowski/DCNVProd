@@ -5,11 +5,7 @@ from subprocess import call
 import numpy as np
 from Bio import SeqIO
 
-from src.config import (
-    MODIFIED_FASTA_FILE_NAME,
-    SIM_DATA_PATH,
-    SIM_READS_FOLDER,
-)
+from src.paths import MODIFIED_FASTA_FILE_NAME, SIM_DATA_PATH, SIM_READS_FOLDER
 
 
 class SimReads:

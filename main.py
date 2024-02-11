@@ -4,7 +4,8 @@ from subprocess import call
 
 from src.argparser import CHRS, arg_parser
 from src.cnv_generator import CNVGenerator
-from src.config import (
+from src.generate_features import Stats
+from src.paths import (
     REF_FASTA_FILE,
     SIM_BAM_FILE_NAME,
     SIM_DATA_PATH,
@@ -12,7 +13,6 @@ from src.config import (
     TEST_PATH,
     TRAIN_PATH,
 )
-from src.generate_features import Stats
 from src.sim_reads import SimReads
 from src.train_basic_model import Train
 from src.utils import (

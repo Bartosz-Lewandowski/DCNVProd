@@ -9,7 +9,7 @@ import requests
 from pybedtools import BedTool
 from tqdm.std import tqdm
 
-from .config import REF_GEN_PATH
+from .paths import REF_GEN_PATH
 
 
 @dataclass

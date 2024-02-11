@@ -8,7 +8,7 @@ from Bio import SeqIO, SeqRecord
 from pybedtools import BedTool
 from tqdm import tqdm
 
-from .config import (
+from .paths import (
     MODIFIED_FASTA_FILE_NAME,
     REF_FASTA_FILE,
     SIM_DATA_PATH,

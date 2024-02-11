@@ -5,7 +5,7 @@ import pytest
 from Bio import SeqIO
 
 from src.cnv_generator import CNVGenerator
-from src.config import MODIFIED_FASTA_FILE_NAME
+from src.paths import MODIFIED_FASTA_FILE_NAME
 from src.utils import BedFormat
 
 
