@@ -1,6 +1,5 @@
 Simple logistic regression
-CNV base metric: 0.6527625031914432
-FBeta score: 0.8130595390545233
+F1 score: 0.8441693293914893
 CNV metrics: {'predicted_correctly': {'dup': 123, 'del': 567}, 'predicted_half_correctly': {'dup': 80, 'del': 297}, 'intersected_half_correctly': {'dup': 43, 'del': 115}, 'predicted_incorrectly': 35739, 'prediction_cov': 0.7280280870327502, 'all_true_cnvs': 1721, 'all_predicted_cnvs': 62368}
               precision    recall  f1-score   support
 
