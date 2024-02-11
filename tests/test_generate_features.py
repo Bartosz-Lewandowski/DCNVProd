@@ -39,20 +39,49 @@ def values(gen_stats):
 def df(values, gen_stats, tempdir):
     gen_stats.combine_into_one_big_file(values)
     df = ge.dataset.PandasDataset(
-        pd.read_csv(os.path.join(tempdir.name, FEATURES_COMBINED_FILE))
+        pd.read_csv(
+            os.path.join(tempdir.name, FEATURES_COMBINED_FILE),
+            sep=",",
+            dtype={
+                "chr": "int8",
+                "start": "int32",
+                "end": "int32",
+                "overlap": "float32",
+                "intq": "float16",
+                "means": "float16",
+                "std": "float16",
+                "BAM_CMATCH": "int32",
+                "BAM_CINS": "int16",
+                "BAM_CDEL": "int16",
+                "BAM_CSOFT_CLIP": "int16",
+                "NM tag": "int16",
+                "STAT_CROSS": "float16",
+                "STAT_CROSS2": "float16",
+                "BAM_CROSS": "int64",
+                "cnv_type": "object",
+                "NXT_5": "float32",
+                "PR_5": "float32",
+                "NXT_10": "float64",
+                "PR_10": "float64",
+                "NXT_20": "float64",
+                "PR_20": "float64",
+            },
+        )
     )
     return df
 
 
 # Test if columns in df are as expected
 def test_expect_table_columns_to_match_ordered_list(df):
-    df.expect_table_columns_to_match_ordered_list(
+    result = df.expect_table_columns_to_match_ordered_list(
         [
             "chr",
             "start",
             "end",
             "overlap",
-            "intq" "means" "std",
+            "intq",
+            "means",
+            "std",
             "BAM_CMATCH",
             "BAM_CINS",
             "BAM_CDEL",
@@ -61,55 +90,98 @@ def test_expect_table_columns_to_match_ordered_list(df):
             "BAM_CROSS",
             "STAT_CROSS",
             "STAT_CROSS2",
-            "PR_5",
-            "NXT_5",
-            "PR_10",
-            "NXT_10",
-            "PR_20",
-            "NXT_20",
             "cnv_type",
+            "NXT_5",
+            "PR_5",
+            "NXT_10",
+            "PR_10",
+            "NXT_20",
+            "PR_20",
         ]
     )
+    assert result["success"]
 
 
 def test_expect_column_values_to_be_of_type(df):
-    df.expect_column_values_to_be_of_type("chr", "object")
-    df.expect_column_values_to_be_of_type("start", "int64")
-    df.expect_column_values_to_be_of_type("end", "int64")
-    df.expect_column_values_to_be_of_type("overlap", "int64")
-    df.expect_column_values_to_be_of_type("intq", "int64")
-    df.expect_column_values_to_be_of_type("means", "float64")
-    df.expect_column_values_to_be_of_type("std", "float64")
-    df.expect_column_values_to_be_of_type("BAM_CMATCH", "int64")
-    df.expect_column_values_to_be_of_type("BAM_CINS", "int64")
-    df.expect_column_values_to_be_of_type("BAM_CDEL", "int64")
-    df.expect_column_values_to_be_of_type("BAM_CSOFT_CLIP", "int64")
-    df.expect_column_values_to_be_of_type("NM tag", "int64")
-    df.expect_column_values_to_be_of_type("BAM_CROSS", "int64")
-    df.expect_column_values_to_be_of_type("STAT_CROSS", "float64")
-    df.expect_column_values_to_be_of_type("STAT_CROSS2", "float64")
-    df.expect_column_values_to_be_of_type("PR_5", "float64")
-    df.expect_column_values_to_be_of_type("NXT_5", "float64")
-    df.expect_column_values_to_be_of_type("PR_10", "float64")
-    df.expect_column_values_to_be_of_type("NXT_10", "float64")
-    df.expect_column_values_to_be_of_type("PR_20", "float64")
-    df.expect_column_values_to_be_of_type("NXT_20", "float64")
-    df.expect_column_values_to_be_of_type("cnv_type", "object")
+    assert df.expect_column_values_to_be_of_type("chr", "int8")["success"]
+    assert df.expect_column_values_to_be_of_type("start", "int32")["success"]
+    assert df.expect_column_values_to_be_of_type("end", "int32")["success"]
+    assert df.expect_column_values_to_be_of_type("overlap", "float32")["success"]
+    assert df.expect_column_values_to_be_of_type("intq", "float16")["success"]
+    assert df.expect_column_values_to_be_of_type("means", "float16")["success"]
+    assert df.expect_column_values_to_be_of_type("std", "float16")["success"]
+    assert df.expect_column_values_to_be_of_type("BAM_CMATCH", "int32")["success"]
+    assert df.expect_column_values_to_be_of_type("BAM_CINS", "int16")["success"]
+    assert df.expect_column_values_to_be_of_type("BAM_CDEL", "int16")["success"]
+    assert df.expect_column_values_to_be_of_type("BAM_CSOFT_CLIP", "int16")["success"]
+    assert df.expect_column_values_to_be_of_type("NM tag", "int16")["success"]
+    assert df.expect_column_values_to_be_of_type("BAM_CROSS", "int64")["success"]
+    assert df.expect_column_values_to_be_of_type("STAT_CROSS", "float16")["success"]
+    assert df.expect_column_values_to_be_of_type("STAT_CROSS2", "float16")["success"]
+    assert df.expect_column_values_to_be_of_type("PR_5", "float32")["success"]
+    assert df.expect_column_values_to_be_of_type("NXT_5", "float32")["success"]
+    assert df.expect_column_values_to_be_of_type("PR_10", "float64")["success"]
+    assert df.expect_column_values_to_be_of_type("NXT_10", "float64")["success"]
+    assert df.expect_column_values_to_be_of_type("PR_20", "float64")["success"]
+    assert df.expect_column_values_to_be_of_type("NXT_20", "float64")["success"]
+    assert df.expect_column_values_to_be_of_type("cnv_type", "object")["success"]
 
 
-def test_expect_column_values_to_be_in_set(df):
-    df.expect_column_values_to_be_in_set("chr", ["1"])
-    df.expect_column_values_to_be_in_set("cnv_type", ["dup", "del", "normal"])
+def test_expect_chr_values_to_be_in_set(df):
+    result = df.expect_column_values_to_be_in_set("chr", [1])
+    assert result["success"]
+
+
+def test_expected_target_values_to_be_in_set(df):
+    result = df.expect_column_values_to_be_in_set("cnv_type", ["dup", "del", "normal"])
+    assert result["success"]
 
 
 # Unique combinations of features (detect data leaks!)
 def test_expect_compound_columns_to_be_unique(df):
-    df.expect_compound_columns_to_be_unique(["chr", "start", "end"])
+    assert df.expect_compound_columns_to_be_unique(["chr", "start", "end"])["success"]
 
 
 # Test if dataset is not empty
 def test_expect_table_row_count_to_be_between(df):
-    df.expect_table_row_count_to_be_between(1, None)
+    assert df.expect_table_row_count_to_be_between(1, None)["success"]
+
+
+def test_features_nxt(df):
+    assert (
+        df.groupby("chr")
+        .tail(5)
+        .expect_column_values_to_be_in_set("NXT_5", [0.0])["success"]
+    )
+    assert (
+        df.groupby("chr")
+        .tail(10)
+        .expect_column_values_to_be_in_set("NXT_10", [0.0])["success"]
+    )
+    assert (
+        df.groupby("chr")
+        .tail(20)
+        .expect_column_values_to_be_in_set("NXT_20", [0.0])["success"]
+    )
+
+
+def test_features_pr(df):
+    print(df)
+    assert (
+        df.groupby("chr")
+        .head(5)
+        .expect_column_values_to_be_in_set("PR_5", [0.0])["success"]
+    )
+    assert (
+        df.groupby("chr")
+        .head(10)
+        .expect_column_values_to_be_in_set("PR_10", [0.0])["success"]
+    )
+    assert (
+        df.groupby("chr")
+        .head(20)
+        .expect_column_values_to_be_in_set("PR_20", [0.0])["success"]
+    )
 
 
 # Test if the output file is created
