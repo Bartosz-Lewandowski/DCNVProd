@@ -116,13 +116,8 @@ class Stats:
         )
 
         df = pd.merge(df_X, df_y, on=["chr", "start", "end"])
-        df["NXT_5"] = df["means"].rolling(5, min_periods=1).sum().shift(-5).fillna(0)
-        df["PR_5"] = df["means"].rolling(5, min_periods=1).sum().shift(5).fillna(0)
-        df["NXT_10"] = df["means"].rolling(10, min_periods=1).sum().shift(-10).fillna(0)
-        df["PR_10"] = df["means"].rolling(10, min_periods=1).sum().shift(10).fillna(0)
-        df["NXT_20"] = df["means"].rolling(20, min_periods=1).sum().shift(-20).fillna(0)
-        df["PR_20"] = df["means"].rolling(20, min_periods=1).sum().shift(20).fillna(0)
-        df.to_csv(training_file, index=False)
+        df_prev_next = self.__get_next_and_prev(df)
+        df_prev_next.to_csv(training_file, index=False)
 
     def generate_stats(self, chrs: list, window_size: int) -> list:
         """
@@ -213,7 +208,7 @@ class Stats:
             cov_all = fastest_sum(cov)
             stats = numba_calc(cov_all)
             cigar = self._get_cigar_stats(refname, start, end, bam)
-            feature_crosses = self.feature_crossing(cigar, stats)
+            feature_crosses = self._feature_crossing(cigar, stats)
             out = [refname, start, end, overlap, intq, *stats, *cigar, *feature_crosses]
         return out
 
@@ -243,7 +238,7 @@ class Stats:
             cigar = [0 for _ in range(11)]
         return [cigar[0], cigar[1], cigar[2], cigar[4], cigar[-1]]
 
-    def feature_crossing(self, cigar_stats: list, cov_stats: list) -> list:
+    def _feature_crossing(self, cigar_stats: list, cov_stats: list) -> list:
         """
         Crosses cigar stats and coverage stats.
 
@@ -259,3 +254,22 @@ class Stats:
         cov1_cross = mean / (std + 0.0001)
         cov2_cross = mean * std
         return [bam_cross, cov1_cross, cov2_cross]
+
+    def __get_next_and_prev(self, df: pd.DataFrame) -> pd.DataFrame:
+        df["NXT_5"] = df["means"].rolling(5, min_periods=1).sum().fillna(0)
+        df["PR_5"] = df["means"].rolling(5, min_periods=1).sum().fillna(0)
+        df["NXT_10"] = df["means"].rolling(10, min_periods=1).sum().fillna(0)
+        df["PR_10"] = df["means"].rolling(10, min_periods=1).sum().fillna(0)
+        df["NXT_20"] = df["means"].rolling(20, min_periods=1).sum().fillna(0)
+        df["PR_20"] = df["means"].rolling(20, min_periods=1).sum().fillna(0)
+        df = self.__correct_next_and_prev(df)
+        return df
+
+    def __correct_next_and_prev(self, df: pd.DataFrame) -> pd.DataFrame:
+        df.loc[df.groupby("chr").head(5).index, ["PR_5"]] = 0
+        df.loc[df.groupby("chr").head(10).index, ["PR_10"]] = 0
+        df.loc[df.groupby("chr").head(20).index, ["PR_20"]] = 0
+        df.loc[df.groupby("chr").tail(5).index, ["NXT_5"]] = 0
+        df.loc[df.groupby("chr").tail(10).index, ["NXT_10"]] = 0
+        df.loc[df.groupby("chr").tail(20).index, ["NXT_20"]] = 0
+        return df
