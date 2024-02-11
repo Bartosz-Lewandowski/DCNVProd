@@ -8,7 +8,7 @@ import pandas as pd
 from lightgbm import LGBMClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBClassifier
 
@@ -70,8 +70,8 @@ class Train:
                 "BAM_CROSS": "int64",
             },
         )
-        test = sim_data[sim_data["chr"].isin([13, 7])]
-        train = sim_data[sim_data["chr"].isin([1, 2, 3, 9])]
+        test = sim_data[sim_data["chr"].isin([13, 7])].reset_index(drop=True)
+        train = sim_data[sim_data["chr"].isin([1, 2, 3, 9])].reset_index(drop=True)
         train.to_csv(TRAIN_PATH, index=False)
         test.to_csv(TEST_PATH, index=False)
 
@@ -191,130 +191,99 @@ class Train:
         bam_fc = trial.suggest_categorical("bam_fc", [True, False])
         prev_and_next = trial.suggest_categorical("prev_and_next", [True, False])
 
-        avgf1 = 0
-        skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
-        first_run = True
-        for train_index, test_index in skf.split(X, y):
-            X_train, X_test = X.iloc[train_index], X.iloc[test_index]
-            y_train, y_test = y[train_index], y[test_index]
-            if not stats1:
-                X_train = X_train.drop(["STAT_CROSS"], axis=1)
-                X_test = X_test.drop(["STAT_CROSS"], axis=1)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+        if not stats1:
+            X_train = X_train.drop(["STAT_CROSS"], axis=1)
+            X_test = X_test.drop(["STAT_CROSS"], axis=1)
 
-            if not stats2:
-                X_train = X_train.drop(["STAT_CROSS2"], axis=1)
-                X_test = X_test.drop(["STAT_CROSS2"], axis=1)
+        if not stats2:
+            X_train = X_train.drop(["STAT_CROSS2"], axis=1)
+            X_test = X_test.drop(["STAT_CROSS2"], axis=1)
 
-            if not bam_fc:
-                X_train = X_train.drop(["BAM_CROSS"], axis=1)
-                X_test = X_test.drop(["BAM_CROSS"], axis=1)
+        if not bam_fc:
+            X_train = X_train.drop(["BAM_CROSS"], axis=1)
+            X_test = X_test.drop(["BAM_CROSS"], axis=1)
 
-            if not prev_and_next:
-                X_train = X_train.drop(
-                    ["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1
+        if not prev_and_next:
+            X_train = X_train.drop(
+                ["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1
+            )
+            X_test = X_test.drop(
+                ["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1
+            )
+
+        if scaler == "log":
+            X_train, x_test_res = self.__log_transform(X_train, X_test)
+        else:
+            x_test_res = X_test
+
+        if model_type == "RandomForest":
+            n_estimators = trial.suggest_int("n_estimators", 20, 300, step=20)
+            params = {
+                "min_samples_split": trial.suggest_int("min_samples_split", 3, 150),
+                "min_samples_leaf": trial.suggest_int("min_samples_leaf", 2, 60),
+            }
+            model = self.__get_random_forest_model(
+                max_depth, class_weight, n_estimators, params
+            )
+        elif model_type == "LightGBM":
+            n_estimators = trial.suggest_int("n_estimators", 20, 300, step=20)
+            params = {
+                "reg_alpha": trial.suggest_float("reg_alpha", 1e-3, 1.0),
+                "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 1.0),
+                "learning_rate": trial.suggest_categorical(
+                    "learning_rate", [0.006, 0.008, 0.01, 0.014, 0.017, 0.02]
+                ),
+                "num_leaves": trial.suggest_int("num_leaves", 50, 700),
+                "min_child_samples": trial.suggest_int("min_child_samples", 20, 5000),
+                "verbosity": -1,
+            }
+            model = self.__get_lightgbm_model(
+                max_depth, class_weight, n_estimators, params
+            )
+        elif model_type == "XGBoost":
+            n_estimators = trial.suggest_int("n_estimators", 20, 80, step=20)
+            params = {
+                "verbosity": 0,
+                "booster": trial.suggest_categorical("booster", ["gbtree", "dart"]),
+                # L2 regularization weight.
+                "lambda": trial.suggest_float("lambda", 1e-3, 1.0, log=True),
+                # L1 regularization weight.
+                "alpha": trial.suggest_float("alpha", 1e-3, 1.0, log=True),
+                "min_child_weight": trial.suggest_int("min_child_weight", 2, 10),
+                "eta": trial.suggest_float("eta", 1e-8, 1.0, log=True),
+                "gamma": trial.suggest_float("gamma", 1e-8, 1.0, log=True),
+                "grow_policy": trial.suggest_categorical(
+                    "grow_policy", ["depthwise", "lossguide"]
+                ),
+            }
+
+            if params["booster"] == "dart":
+                params["sample_type"] = trial.suggest_categorical(
+                    "sample_type", ["uniform", "weighted"]
                 )
-                X_test = X_test.drop(
-                    ["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1
+                params["normalize_type"] = trial.suggest_categorical(
+                    "normalize_type", ["tree", "forest"]
                 )
-
-            if scaler == "log":
-                X_train, x_test_res = self.__log_transform(X_train, X_test)
-            else:
-                x_test_res = X_test
-
-            if model_type == "RandomForest":
-                n_estimators = trial.suggest_int("n_estimators", 20, 300, step=20)
-                params = {
-                    "min_samples_split": trial.suggest_int("min_samples_split", 3, 150),
-                    "min_samples_leaf": trial.suggest_int("min_samples_leaf", 2, 60),
-                }
-                model = self.__get_random_forest_model(
-                    max_depth, class_weight, n_estimators, params
+                params["rate_drop"] = trial.suggest_float(
+                    "rate_drop", 1e-8, 0.4, log=True
                 )
-            elif model_type == "LightGBM":
-                n_estimators = trial.suggest_int("n_estimators", 20, 300, step=20)
-                params = {
-                    "reg_alpha": trial.suggest_float("reg_alpha", 1e-3, 1.0),
-                    "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 1.0),
-                    "learning_rate": trial.suggest_categorical(
-                        "learning_rate", [0.006, 0.008, 0.01, 0.014, 0.017, 0.02]
-                    ),
-                    "num_leaves": trial.suggest_int("num_leaves", 50, 700),
-                    "min_child_samples": trial.suggest_int(
-                        "min_child_samples", 20, 5000
-                    ),
-                    "verbosity": -1,
-                }
-                model = self.__get_lightgbm_model(
-                    max_depth, class_weight, n_estimators, params
+                params["skip_drop"] = trial.suggest_float(
+                    "skip_drop", 1e-8, 0.4, log=True
                 )
-            elif model_type == "XGBoost":
-                n_estimators = trial.suggest_int("n_estimators", 20, 80, step=20)
-                params = {
-                    "verbosity": 0,
-                    "booster": trial.suggest_categorical("booster", ["gbtree", "dart"]),
-                    # L2 regularization weight.
-                    "lambda": trial.suggest_float("lambda", 1e-3, 1.0, log=True),
-                    # L1 regularization weight.
-                    "alpha": trial.suggest_float("alpha", 1e-3, 1.0, log=True),
-                    "min_child_weight": trial.suggest_int("min_child_weight", 2, 10),
-                    "eta": trial.suggest_float("eta", 1e-8, 1.0, log=True),
-                    "gamma": trial.suggest_float("gamma", 1e-8, 1.0, log=True),
-                    "grow_policy": trial.suggest_categorical(
-                        "grow_policy", ["depthwise", "lossguide"]
-                    ),
-                }
+            model = self.__get_xgboost_model(
+                max_depth, class_weight, n_estimators, params
+            )
 
-                if params["booster"] == "dart":
-                    params["sample_type"] = trial.suggest_categorical(
-                        "sample_type", ["uniform", "weighted"]
-                    )
-                    params["normalize_type"] = trial.suggest_categorical(
-                        "normalize_type", ["tree", "forest"]
-                    )
-                    params["rate_drop"] = trial.suggest_float(
-                        "rate_drop", 1e-8, 0.4, log=True
-                    )
-                    params["skip_drop"] = trial.suggest_float(
-                        "skip_drop", 1e-8, 0.4, log=True
-                    )
-                model = self.__get_xgboost_model(
-                    max_depth, class_weight, n_estimators, params
-                )
+        # Trenowanie modelu
+        model.fit(X_train, y_train)
 
-            # Trenowanie modelu
-            model.fit(X_train, y_train)
+        # Przewidywanie na zbiorze testowym
 
-            # Przewidywanie na zbiorze testowym
-
-            y_pred = model.predict(x_test_res)
-            f1 = f1_score(y_test, y_pred, average="macro")
-            print(f1)
-
-            if first_run and f1 < self.best_score:
-                self.results.append(
-                    {
-                        "model": model_type,
-                        "n_estimators": n_estimators,
-                        "max_depth": max_depth,
-                        "class_weight": class_weight,
-                        "scaler": scaler,
-                        "stats1": stats1,
-                        "stats2": stats2,
-                        "bam_fc": bam_fc,
-                        "prev_and_next": prev_and_next,
-                        "params": params,
-                        "f1": avgf1,
-                    }
-                )
-                return f1
-            elif f1 > self.best_score:
-                first_run = False
-                self.best_score = f1
-            else:
-                first_run = False
-
-            avgf1 += f1
+        y_pred = model.predict(x_test_res)
+        f1 = f1_score(y_test, y_pred, average="macro")
 
         self.results.append(
             {
@@ -328,10 +297,10 @@ class Train:
                 "bam_fc": bam_fc,
                 "prev_and_next": prev_and_next,
                 "params": params,
-                "f1": avgf1 / 3,
+                "f1": f1,
             }
         )
-        return avgf1 / 3
+        return f1
 
     def __get_random_forest_model(
         self,

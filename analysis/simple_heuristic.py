@@ -2,7 +2,7 @@ import random
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import fbeta_score
+from sklearn.metrics import f1_score
 from sklearn.preprocessing import LabelEncoder
 
 from ..src.metrics import CNVMetric
@@ -53,14 +53,10 @@ if __name__ == "__main__":
     ]
     metrics = get_CNV_metric_results(X_test, y_test, y_preds, lbl_e)
     cnv_metrics = metrics.get_metrics()
-    cnv_metric = metrics.base_metric(2)
 
     with open("../results/simple_heuristic.txt", "w") as f:
         f.write("Simple heuristic\n")
-        f.write(f"CNV base metric: {cnv_metric}\n")
-        f.write(
-            f"FBeta score: {fbeta_score(y_test, y_preds, beta=3, average='weighted')}\n"
-        )
+        f.write(f"F1 score: {f1_score(y_test, y_preds, average='weighted')}\n")
         f.write("CNV metrics:\n")
         for key, value in cnv_metrics.items():
             f.write(f"{key}: {value}\n")

@@ -1,11 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    classification_report,
-    confusion_matrix,
-    fbeta_score,
-)
+from sklearn.metrics import classification_report, confusion_matrix, f1_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 from ..src.metrics import CNVMetric
@@ -82,14 +78,10 @@ if __name__ == "__main__":
 
     metrics = get_CNV_metric_results(y_preds, lbl_e)
     cnv_metrics = metrics.get_metrics()
-    cnv_metric = metrics.base_metric(w=2)
 
     with open("../results/simple_log_reg.txt", "w") as f:
         f.write("Simple logistic regression\n")
-        f.write(f"CNV base metric: {cnv_metric}\n")
-        f.write(
-            f"FBeta score: {fbeta_score(y_test, y_preds, beta=3, average='macro')}\n"
-        )
+        f.write(f"F1 score: {f1_score(y_test, y_preds, average='macro')}\n")
         f.write(f"CNV metrics: {cnv_metrics}\n")
         f.write(classification_report(y_test, y_preds, zero_division=True))
         f.write(str(confusion_matrix(y_test, y_preds)))
