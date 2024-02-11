@@ -2,7 +2,7 @@ import random
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import f1_score
+from sklearn.metrics import classification_report, confusion_matrix, f1_score
 from sklearn.preprocessing import LabelEncoder
 
 from ..src.metrics import CNVMetric
@@ -56,7 +56,9 @@ if __name__ == "__main__":
 
     with open("../results/simple_heuristic.txt", "w") as f:
         f.write("Simple heuristic\n")
-        f.write(f"F1 score: {f1_score(y_test, y_preds, average='weighted')}\n")
+        f.write(f"F1 score: {f1_score(y_test, y_preds, average='macro')}\n")
         f.write("CNV metrics:\n")
         for key, value in cnv_metrics.items():
             f.write(f"{key}: {value}\n")
+        f.write(classification_report(y_test, y_preds, zero_division=True))
+        f.write(str(confusion_matrix(y_test, y_preds)))
