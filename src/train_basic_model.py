@@ -7,10 +7,11 @@ import optuna
 import pandas as pd
 from lightgbm import LGBMClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.multiclass import OneVsRestClassifier
-from sklearn.preprocessing import LabelEncoder, label_binarize
+from sklearn.preprocessing import label_binarize
 from xgboost import XGBClassifier
 
 from analysis.plots import plot_PR
@@ -34,7 +35,6 @@ class Train:
         self.eda = eda
         self.data_file = "/".join([STATS_FOLDER, FEATURES_COMBINED_FILE])
         self._create_train_test_folders()
-        self.lbl_e = LabelEncoder()
         self.columns_to_drop = [
             "chr",
             "start",
@@ -51,6 +51,7 @@ class Train:
         self.prev_and_next = True
         self.log = False
         self.best_score: float = 0.0
+        self.mapping = {"del": 0, "dup": 1, "normal": 2}
 
     def prepare_data(self) -> None:
         sim_data = pd.read_csv(
@@ -82,7 +83,7 @@ class Train:
     def train(self):
         X, y = self._load_train_files()
         study = optuna.create_study(direction="maximize")
-        study.optimize(lambda trial: self._objective(trial, X, y), timeout=3600 * 15)
+        study.optimize(lambda trial: self._objective(trial, X, y), timeout=3600 * 7)
 
         # Get the best hyperparameters
         results_df = pd.DataFrame(self.results)
@@ -110,23 +111,17 @@ class Train:
 
         if self.best_params["model"] == "XGBoost":
             best_model = self.__get_xgboost_model(
-                self.best_params["max_depth"],
                 self.best_params["class_weight"],
-                self.best_params["n_estimators"],
                 self.best_params["params"],
             )
         elif self.best_params["model"] == "LightGBM":
             best_model = self.__get_lightgbm_model(
-                self.best_params["max_depth"],
                 self.best_params["class_weight"],
-                self.best_params["n_estimators"],
                 self.best_params["params"],
             )
         elif self.best_params["model"] == "RandomForest":
             best_model = self.__get_random_forest_model(
-                self.best_params["max_depth"],
                 self.best_params["class_weight"],
-                self.best_params["n_estimators"],
                 self.best_params["params"],
             )
 
@@ -162,14 +157,14 @@ class Train:
 
         model = pickle.load(open(BASIC_MODEL_PATH, "rb"))
         pred = model.predict(X_test)
-        pred_str = self.lbl_e.inverse_transform(pred)
+        pred_str = self.map_function(pred, reverse_mapping=True)
         df = pd.read_csv(TEST_PATH, sep=",")
         df["pred"] = pred_str
         metrics = CNVMetric(df)
         metrics_res = metrics.get_metrics()
         if self.eda:
             self._get_precision_recall_curve(X_test, y_test)
-        with open("results/ML_model.txt", "a") as f:
+        with open("results/ML_model.txt", "w") as f:
             print("ML MODEL", file=f)
             print(f"Params: {self.best_params}", file=f)
             print(
@@ -184,9 +179,8 @@ class Train:
     def _objective(self, trial, X, y):
         # Define the hyperparameters to search over
         model_type = trial.suggest_categorical(
-            "model_type", ["LightGBM", "XGBoost", "RandomForest"]
+            "model_type", ["LightGBM", "XGBoost", "RandomForest", "LogisticRegression"]
         )
-        max_depth = trial.suggest_int("max_depth", 20, 200, step=20)
         class_weight = trial.suggest_categorical(
             "class_weight",
             [
@@ -204,7 +198,7 @@ class Train:
         prev_and_next = trial.suggest_categorical("prev_and_next", [True, False])
 
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
+            X, y, stratify=y, test_size=0.2, random_state=42
         )
         if not stats1:
             X_train = X_train.drop(["STAT_CROSS"], axis=1)
@@ -232,17 +226,25 @@ class Train:
             x_test_res = X_test
 
         if model_type == "RandomForest":
-            n_estimators = trial.suggest_int("n_estimators", 20, 300, step=20)
             params = {
+                "n_estimators": trial.suggest_int("n_estimators", 20, 300, step=20),
+                "max_depth": trial.suggest_int("max_depth", 20, 200, step=20),
                 "min_samples_split": trial.suggest_int("min_samples_split", 3, 150),
                 "min_samples_leaf": trial.suggest_int("min_samples_leaf", 2, 60),
             }
-            model = self.__get_random_forest_model(
-                max_depth, class_weight, n_estimators, params
-            )
-        elif model_type == "LightGBM":
-            n_estimators = trial.suggest_int("n_estimators", 20, 300, step=20)
+            model = self.__get_random_forest_model(class_weight, params)
+        elif model_type == "LogisticRegression":
             params = {
+                "solver": trial.suggest_categorical(
+                    "solver", ["newton-cg", "lbfgs", "sag", "saga"]
+                ),
+                "C": trial.suggest_float("C", 1e-3, 1.0, log=True),
+            }
+            model = self.__get_logistic_regression_model(class_weight, params)
+        elif model_type == "LightGBM":
+            params = {
+                "max_depth": trial.suggest_int("max_depth", 20, 200, step=20),
+                "n_estimators": trial.suggest_int("n_estimators", 20, 300, step=20),
                 "reg_alpha": trial.suggest_float("reg_alpha", 1e-3, 1.0),
                 "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 1.0),
                 "learning_rate": trial.suggest_categorical(
@@ -252,13 +254,12 @@ class Train:
                 "min_child_samples": trial.suggest_int("min_child_samples", 20, 5000),
                 "verbosity": -1,
             }
-            model = self.__get_lightgbm_model(
-                max_depth, class_weight, n_estimators, params
-            )
+            model = self.__get_lightgbm_model(class_weight, params)
         elif model_type == "XGBoost":
-            n_estimators = trial.suggest_int("n_estimators", 10, 80, step=10)
             params = {
                 "verbosity": 0,
+                "max_depth": trial.suggest_int("max_depth", 20, 200, step=20),
+                "n_estimators": trial.suggest_int("n_estimators", 10, 80, step=10),
                 "booster": trial.suggest_categorical("booster", ["gbtree", "dart"]),
                 # L2 regularization weight.
                 "lambda": trial.suggest_float("lambda", 1e-3, 1.0, log=True),
@@ -285,9 +286,7 @@ class Train:
                 params["skip_drop"] = trial.suggest_float(
                     "skip_drop", 1e-8, 0.4, log=True
                 )
-            model = self.__get_xgboost_model(
-                max_depth, class_weight, n_estimators, params
-            )
+            model = self.__get_xgboost_model(class_weight, params)
 
         # Trenowanie modelu
         model.fit(X_train, y_train)
@@ -300,8 +299,6 @@ class Train:
         self.results.append(
             {
                 "model": model_type,
-                "n_estimators": n_estimators,
-                "max_depth": max_depth,
                 "class_weight": class_weight,
                 "scaler": scaler,
                 "stats1": stats1,
@@ -316,14 +313,10 @@ class Train:
 
     def __get_random_forest_model(
         self,
-        max_depth: int,
         class_weight: Union[str, dict, None],
-        n_estimators: int,
         params: dict,
     ) -> RandomForestClassifier:
         model = RandomForestClassifier(
-            n_estimators=n_estimators,
-            max_depth=max_depth,
             class_weight=class_weight,
             random_state=42,
             n_jobs=-1,
@@ -333,14 +326,10 @@ class Train:
 
     def __get_xgboost_model(
         self,
-        max_depth: int,
         class_weight: Union[str, dict, None],
-        n_estimators: int,
         params: dict,
     ) -> XGBClassifier:
         model = XGBClassifier(
-            n_estimators=n_estimators,
-            max_depth=max_depth,
             scale_pos_weight=class_weight,
             random_state=42,
             n_jobs=-1,
@@ -351,14 +340,23 @@ class Train:
 
     def __get_lightgbm_model(
         self,
-        max_depth: int,
         class_weight: Union[str, dict, None],
-        n_estimators: int,
         params: dict,
     ) -> LGBMClassifier:
         model = LGBMClassifier(
-            n_estimators=n_estimators,
-            max_depth=max_depth,
+            class_weight=class_weight,
+            random_state=42,
+            n_jobs=-1,
+            **params,
+        )
+        return model
+
+    def __get_logistic_regression_model(
+        self,
+        class_weight: Union[str, dict, None],
+        params: dict,
+    ) -> LogisticRegression:
+        model = LogisticRegression(
             class_weight=class_weight,
             random_state=42,
             n_jobs=-1,
@@ -370,14 +368,14 @@ class Train:
         train = pd.read_csv(TRAIN_PATH, sep=",")
         if self.eda:
             self._perform_eda(train)
-        train["cnv_type"] = self.lbl_e.fit_transform(train["cnv_type"])
+        train["cnv_type"] = self.map_function(train["cnv_type"])
         X = train.drop(self.columns_to_drop, axis=1)
         y = train["cnv_type"]
         return X, y
 
     def _load_test_files(self) -> tuple[pd.DataFrame, pd.Series]:
         df_test = pd.read_csv(TEST_PATH, sep=",")
-        df_test["cnv_type"] = self.lbl_e.transform(df_test["cnv_type"])
+        df_test["cnv_type"] = self.map_function(df_test["cnv_type"])
         X_test_sim = df_test.drop(self.columns_to_drop, axis=1)
         y_test_sim = df_test["cnv_type"]
         return X_test_sim, y_test_sim
@@ -405,3 +403,10 @@ class Train:
         y_score = model.predict(X_test)
         y_true = label_binarize(y_test, classes=[*range(3)])
         plot_PR(y_true, y_score)
+
+    def map_function(self, target_values: list, reverse_mapping: bool = False) -> list:
+        if reverse_mapping:
+            rev_map = {v: k for k, v in self.mapping.items()}
+            return list(map(rev_map.get, target_values))
+        else:
+            return list(map(self.mapping.get, target_values))
