@@ -1,0 +1,26 @@
+ML MODEL
+Params: model                                                 RandomForest
+class_weight                                                  None
+scaler                                                        None
+stats1                                                        True
+stats2                                                        True
+bam_fc                                                        True
+prev_and_next                                                 True
+params           {'n_estimators': 300, 'max_depth': 200, 'min_s...
+f1                                                        0.919043
+Name: 28, dtype: object
+F1 SCORE: 0.8805085713343449
+              precision    recall  f1-score   support
+
+           0       0.98      1.00      0.99    782623
+           1       1.00      0.53      0.69    782279
+           2       0.93      1.00      0.96   5038670
+
+    accuracy                           0.94   6603572
+   macro avg       0.97      0.84      0.88   6603572
+weighted avg       0.95      0.94      0.93   6603572
+
+[[ 780631       1    1991]
+ [   1004  411514  369761]
+ [  13547     724 5024399]]
+{'predicted_correctly': {'dup': 239, 'del': 721}, 'predicted_half_correctly': {'dup': 175, 'del': 146}, 'intersected_half_correctly': {'dup': 22, 'del': 75}, 'predicted_incorrectly': 5756, 'prediction_cov': 0.7714141233834021, 'all_true_cnvs': 1721, 'all_predicted_cnvs': 9569}
