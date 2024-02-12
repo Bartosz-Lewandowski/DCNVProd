@@ -4,6 +4,7 @@ from subprocess import call
 
 from src.argparser import CHRS, arg_parser
 from src.cnv_generator import CNVGenerator
+from src.dnn import Train as DNNTrain
 from src.generate_features import Stats
 from src.paths import (
     REF_FASTA_FILE,
@@ -92,9 +93,17 @@ if __name__ == "__main__":
                 "WARNING##: You need to create new features aswell, make sure to run with --new_features flag."
             )
     if args.command == "train":
-        classifier = Train(args.EDA)
-        if not os.path.exists(TRAIN_PATH) or not os.path.exists(TEST_PATH):
-            classifier.prepare_data()
-        logging.info("Starting training basic model")
-        classifier.train()
-        classifier.evaluate_on_test_data()
+        if args.DL:
+            logging.info("Starting training DNN model")
+            classifier = DNNTrain(args.EDA)
+            if not os.path.exists(TRAIN_PATH) or not os.path.exists(TEST_PATH):
+                classifier.prepare_data()
+            classifier.train()
+            classifier.evaluate_on_test_data()
+        else:
+            logging.info("Starting training basic ML model")
+            classifier = Train(args.EDA)
+            if not os.path.exists(TRAIN_PATH) or not os.path.exists(TEST_PATH):
+                classifier.prepare_data()
+            classifier.train()
+            classifier.evaluate_on_test_data()

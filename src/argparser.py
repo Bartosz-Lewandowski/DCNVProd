@@ -114,4 +114,20 @@ def arg_parser():
         default=False,
         required=False,
     )
+    train.add_argument(
+        "--ml",
+        help="Perform ML algorithm.",
+        dest="ML",
+        action="store_true",
+        default=False,
+        required=False,
+    )
+    train.add_argument(
+        "--dl",
+        help="Perform DL algorithm.",
+        dest="DL",
+        action="store_true",
+        default=False,
+        required=False,
+    )
     return parser
