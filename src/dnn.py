@@ -46,6 +46,11 @@ class Train:
         self.log = False
         self.best_score: float = 0.0
         self.mapping = {"del": 0, "dup": 1, "normal": 2}
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
+        print(f"Using {self.device} device")
 
     def train(self):
         X, y = self._load_train_files()
@@ -54,15 +59,16 @@ class Train:
         input_size = X.shape[1]  # Number of features
         hidden_size = 64
         num_classes = len(np.unique(y))
-        self.model = DNN(input_size, hidden_size, num_classes)
+        self.model = DNN(input_size, hidden_size, num_classes).to(self.device)
         optimizer = optim.SGD(self.model.parameters(), lr=0.001)
-        num_epochs = 2
+        num_epochs = 3
         criterion = nn.CrossEntropyLoss()
 
         for epoch in range(num_epochs):
             for batch_x, batch_y in tqdm.tqdm(
                 train_data_loader, total=len(train_data_loader)
             ):
+                batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
                 optimizer.zero_grad()
                 output = self.model(batch_x)
                 loss = criterion(output, batch_y)
@@ -90,15 +96,13 @@ class Train:
             cnv = CNVMetric(test_data)
             with open("results/simple_DNN_model.txt", "w") as f:
                 f.write("Simple DNN Model\n")
-                f.write(f"F1 Score: {f1_score(y_true, y_pred, average='macro')}")
-                f.write(str(confusion_matrix(y_true, y_pred)))
-                f.write(classification_report(y_true, y_pred))
+                f.write(f"F1 Score: {f1_score(y_true, y_pred, average='macro')}\n")
+                f.write(f"{str(confusion_matrix(y_true, y_pred))}\n")
+                f.write(f"{classification_report(y_true, y_pred)}\n")
                 f.write(f"CNV Metric: {cnv.get_metrics()}")
 
     def _load_train_files(self) -> tuple[pd.DataFrame, pd.Series]:
         train = pd.read_csv(TRAIN_PATH, sep=",")
-        if self.eda:
-            self._perform_eda(train)
         train["cnv_type"] = self.map_function(train["cnv_type"])
         X = train.drop(self.columns_to_drop, axis=1)
         y = train["cnv_type"]
