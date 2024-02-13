@@ -1,0 +1,16 @@
+Simple DNN Model
+F1 Score: 0.8847116257036362
+[[ 776405       0    6218]
+ [    999  419264  362016]
+ [   3966    1391 5033313]]
+              precision    recall  f1-score   support
+
+           0       0.99      0.99      0.99    782623
+           1       1.00      0.54      0.70    782279
+           2       0.93      1.00      0.96   5038670
+
+    accuracy                           0.94   6603572
+   macro avg       0.97      0.84      0.88   6603572
+weighted avg       0.95      0.94      0.94   6603572
+
+CNV Metric: {'predicted_correctly': {'dup': 53, 'del': 15}, 'predicted_half_correctly': {'dup': 301, 'del': 843}, 'intersected_half_correctly': {'dup': 105, 'del': 51}, 'predicted_incorrectly': 942, 'prediction_cov': 0.7678099863543076, 'all_true_cnvs': 1721, 'all_predicted_cnvs': 5971}
