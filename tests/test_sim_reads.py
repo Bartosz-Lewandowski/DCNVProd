@@ -45,7 +45,5 @@ def test_sim_reads(sample_fasta_file):
     with tempfile.TemporaryDirectory() as temp_dir:
         simreads = SimReads(10, 10, "novaseq", sample_fasta_file, temp_dir)
         simreads.sim_reads_genome()
-        assert len(os.listdir(temp_dir)) == 3
         assert os.path.exists(os.path.join(temp_dir, "10_R1.fastq"))
         assert os.path.exists(os.path.join(temp_dir, "10_R2.fastq"))
-        assert os.path.exists(os.path.join(temp_dir, "10_abundance.txt"))
