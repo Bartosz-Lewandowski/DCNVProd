@@ -5,7 +5,9 @@ RUN  apt-get update && \
         build-essential \
         gcc \
         libz-dev \
-        bedtools 
+        bedtools \
+        bwa \
+        samtools
 
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app
