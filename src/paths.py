@@ -17,12 +17,15 @@ FEATURES_COMBINED_FILE = "combined.csv"
 
 TRAIN_FOLDER = "train"
 TEST_FOLDER = "test"
+VAL_FOLDER = "val"
 
 TRAIN_FILE = "train.csv"
 TEST_FILE = "test.csv"
+VAL_FILE = "val.csv"
 
 TRAIN_PATH = "/".join([TRAIN_FOLDER, TRAIN_FILE])
 TEST_PATH = "/".join([TEST_FOLDER, TEST_FILE])
+VAL_PATH = "/".join([VAL_FOLDER, VAL_FILE])
 
 BASIC_MODEL_FOLDER = "basic_model"
 BASIC_MODEL_FILE = "model.pkl"

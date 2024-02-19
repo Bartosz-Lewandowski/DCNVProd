@@ -13,12 +13,14 @@ from src.paths import (
     SIM_READS_FOLDER,
     TEST_PATH,
     TRAIN_PATH,
+    VAL_PATH,
 )
 from src.sim_reads import SimReads
 from src.train_basic_model import Train
 from src.utils import (
     combine_and_cleanup_reference_genome,
     download_reference_genome,
+    prepare_data,
 )
 
 logging.basicConfig(format="%(asctime)s : %(message)s", level=logging.INFO)
@@ -96,14 +98,21 @@ if __name__ == "__main__":
         if args.DL:
             logging.info("Starting training DNN model")
             classifier = DNNTrain(args.EDA)
-            if not os.path.exists(TRAIN_PATH) or not os.path.exists(TEST_PATH):
-                classifier.prepare_data()
+            if (
+                not os.path.exists(TRAIN_PATH)
+                or not os.path.exists(TEST_PATH)
+                or not os.path.exists(VAL_PATH)
+            ):
+                prepare_data()
             classifier.train()
-            classifier.evaluate_on_test_data()
         else:
             logging.info("Starting training basic ML model")
-            classifier = Train(args.EDA)
-            if not os.path.exists(TRAIN_PATH) or not os.path.exists(TEST_PATH):
-                classifier.prepare_data()
-            classifier.train()
-            classifier.evaluate_on_test_data()
+            ml_classifier = Train(args.EDA)
+            if (
+                not os.path.exists(TRAIN_PATH)
+                or not os.path.exists(TEST_PATH)
+                or not os.path.exists(VAL_PATH)
+            ):
+                prepare_data()
+            ml_classifier.train()
+            ml_classifier.evaluate_on_test_data()

@@ -5,11 +5,22 @@ import shutil
 from dataclasses import dataclass
 
 import numpy as np
+import pandas as pd
 import requests
 from pybedtools import BedTool
 from tqdm.std import tqdm
 
-from .paths import REF_GEN_PATH
+from .paths import (
+    FEATURES_COMBINED_FILE,
+    REF_GEN_PATH,
+    STATS_FOLDER,
+    TEST_FOLDER,
+    TEST_PATH,
+    TRAIN_FOLDER,
+    TRAIN_PATH,
+    VAL_FOLDER,
+    VAL_PATH,
+)
 
 
 @dataclass
@@ -88,3 +99,38 @@ def combine_and_cleanup_reference_genome(input_folder, output_file):
     for filename in os.listdir(input_folder):
         if filename.endswith(".fa.gz"):
             os.remove(os.path.join(input_folder, filename))
+
+
+def prepare_data() -> None:
+    os.makedirs(TRAIN_FOLDER, exist_ok=True)
+    os.makedirs(TEST_FOLDER, exist_ok=True)
+    os.makedirs(VAL_FOLDER, exist_ok=True)
+    data_file = "/".join([STATS_FOLDER, FEATURES_COMBINED_FILE])
+    sim_data = pd.read_csv(
+        data_file,
+        sep=",",
+        dtype={
+            "chr": "int8",
+            "start": "int32",
+            "end": "int32",
+            "overlap": "float32",
+            "intq": "float16",
+            "means": "float16",
+            "std": "float16",
+            "BAM_CMATCH": "int32",
+            "BAM_CINS": "int16",
+            "BAM_CDEL": "int16",
+            "BAM_CSOFT_CLIP": "int16",
+            "NM tag": "int16",
+            "STAT_CROSS": "float16",
+            "STAT_CROSS2": "float16",
+            "BAM_CROSS": "int64",
+        },
+    )
+    test = sim_data[sim_data["chr"].isin([3, 13, 18])].reset_index(drop=True)
+    val = sim_data[sim_data["chr"].isin([4, 9])].reset_index(drop=True)
+    train = sim_data[~sim_data["chr"].isin([3, 4, 9, 13, 18])].reset_index(drop=True)
+
+    train.to_csv(TRAIN_PATH, index=False)
+    val.to_csv(VAL_PATH, index=False)
+    test.to_csv(TEST_PATH, index=False)
