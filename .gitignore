@@ -1,5 +1,6 @@
 train/
 test/
+val/
 train_sim/
 train_bam/
 train_bed/
