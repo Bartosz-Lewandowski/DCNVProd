@@ -251,7 +251,10 @@ class Stats:
         """
         bam_cross = abs(np.prod(cigar_stats))
         mean, std = cov_stats
-        cov1_cross = mean / (std + 0.0001)
+        try:
+            cov1_cross = mean / std
+        except ZeroDivisionError:
+            cov1_cross = mean
         cov2_cross = mean * std
         return [bam_cross, cov1_cross, cov2_cross]
 
