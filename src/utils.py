@@ -101,32 +101,38 @@ def combine_and_cleanup_reference_genome(input_folder, output_file):
             os.remove(os.path.join(input_folder, filename))
 
 
-def prepare_data() -> None:
+def get_dtype_dict() -> dict:
+    return {
+        "chr": "int8",
+        "start": "int32",
+        "end": "int32",
+        "overlap": "float32",
+        "intq": "float16",
+        "means": "float16",
+        "std": "float16",
+        "BAM_CMATCH": "int32",
+        "BAM_CINS": "int16",
+        "BAM_CDEL": "int16",
+        "BAM_CSOFT_CLIP": "int16",
+        "NM tag": "int16",
+        "STAT_CROSS": "float16",
+        "STAT_CROSS2": "float16",
+        "BAM_CROSS": "int64",
+        "PR_5": "float32",
+        "PR_10": "float64",
+        "PR_20": "float64",
+        "NXT_5": "float32",
+        "NXT_10": "float64",
+        "NXT_20": "float64",
+    }
+
+
+def prepare_data(dtype: dict) -> None:
     os.makedirs(TRAIN_FOLDER, exist_ok=True)
     os.makedirs(TEST_FOLDER, exist_ok=True)
     os.makedirs(VAL_FOLDER, exist_ok=True)
     data_file = "/".join([STATS_FOLDER, FEATURES_COMBINED_FILE])
-    sim_data = pd.read_csv(
-        data_file,
-        sep=",",
-        dtype={
-            "chr": "int8",
-            "start": "int32",
-            "end": "int32",
-            "overlap": "float32",
-            "intq": "float16",
-            "means": "float16",
-            "std": "float16",
-            "BAM_CMATCH": "int32",
-            "BAM_CINS": "int16",
-            "BAM_CDEL": "int16",
-            "BAM_CSOFT_CLIP": "int16",
-            "NM tag": "int16",
-            "STAT_CROSS": "float16",
-            "STAT_CROSS2": "float16",
-            "BAM_CROSS": "int64",
-        },
-    )
+    sim_data = pd.read_csv(data_file, sep=",", dtype=dtype)
     test = sim_data[sim_data["chr"].isin([3, 13, 18])].reset_index(drop=True)
     val = sim_data[sim_data["chr"].isin([4, 9])].reset_index(drop=True)
     train = sim_data[~sim_data["chr"].isin([3, 4, 9, 13, 18])].reset_index(drop=True)

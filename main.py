@@ -20,6 +20,7 @@ from src.train_basic_model import Train
 from src.utils import (
     combine_and_cleanup_reference_genome,
     download_reference_genome,
+    get_dtype_dict,
     prepare_data,
 )
 
@@ -95,24 +96,25 @@ if __name__ == "__main__":
                 "WARNING##: You need to create new features aswell, make sure to run with --new_features flag."
             )
     if args.command == "train":
+        dtype_dict = get_dtype_dict()
         if args.DL:
             logging.info("Starting training DNN model")
-            classifier = DNNTrain(args.EDA)
+            classifier = DNNTrain(args.EDA, dtype_dict)
             if (
                 not os.path.exists(TRAIN_PATH)
                 or not os.path.exists(TEST_PATH)
                 or not os.path.exists(VAL_PATH)
             ):
-                prepare_data()
+                prepare_data(dtype_dict)
             classifier.train()
         else:
             logging.info("Starting training basic ML model")
-            ml_classifier = Train(args.EDA)
+            ml_classifier = Train(args.EDA, dtype_dict)
             if (
                 not os.path.exists(TRAIN_PATH)
                 or not os.path.exists(TEST_PATH)
                 or not os.path.exists(VAL_PATH)
             ):
-                prepare_data()
+                prepare_data(dtype_dict)
             ml_classifier.train()
             ml_classifier.evaluate_on_test_data()
