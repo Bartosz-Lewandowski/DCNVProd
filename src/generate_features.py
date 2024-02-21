@@ -256,12 +256,36 @@ class Stats:
         return [bam_cross, cov1_cross, cov2_cross]
 
     def __get_next_and_prev(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["NXT_5"] = df["means"].rolling(5, min_periods=1).sum().fillna(0)
-        df["PR_5"] = df["means"].rolling(5, min_periods=1).sum().fillna(0)
-        df["NXT_10"] = df["means"].rolling(10, min_periods=1).sum().fillna(0)
-        df["PR_10"] = df["means"].rolling(10, min_periods=1).sum().fillna(0)
-        df["NXT_20"] = df["means"].rolling(20, min_periods=1).sum().fillna(0)
-        df["PR_20"] = df["means"].rolling(20, min_periods=1).sum().fillna(0)
+        df["PR_5"] = (
+            df["means"].rolling(5, min_periods=5).sum().fillna(0).round(decimals=5)
+        )
+        df["PR_10"] = (
+            df["means"].rolling(10, min_periods=10).sum().fillna(0).round(decimals=5)
+        )
+        df["PR_20"] = (
+            df["means"].rolling(20, min_periods=20).sum().fillna(0).round(decimals=5)
+        )
+        df["NXT_5"] = (
+            df["means"][::-1]
+            .rolling(5, min_periods=5)
+            .sum()[::-1]
+            .fillna(0)
+            .round(decimals=5)
+        )
+        df["NXT_10"] = (
+            df["means"][::-1]
+            .rolling(10, min_periods=10)
+            .sum()[::-1]
+            .fillna(0)
+            .round(decimals=5)
+        )
+        df["NXT_20"] = (
+            df["means"][::-1]
+            .rolling(20, min_periods=20)
+            .sum()[::-1]
+            .fillna(0)
+            .round(decimals=5)
+        )
         df = self.__correct_next_and_prev(df)
         return df
 
