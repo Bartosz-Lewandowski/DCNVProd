@@ -24,6 +24,7 @@ from src.utils import (
     BedTool_to_BedFormat,
     combine_and_cleanup_reference_genome,
     download_reference_genome,
+    get_dtype_dict,
     prepare_data,
 )
 
@@ -152,7 +153,8 @@ def test_data_files_created(create_sim_data, setup_and_teardown):  # Use both fi
         create_sim_data.to_csv(f, index=False)  # Save example data
 
     # Call the function you're testing
-    prepare_data()
+    dtype = get_dtype_dict()
+    prepare_data(dtype)
 
     # Assertions
     assert os.path.exists(TRAIN_PATH)
@@ -167,7 +169,8 @@ def test_data_filtering(create_sim_data, setup_and_teardown):
         create_sim_data.to_csv(f, index=False)  # Save example data
 
     # Call the function you're testing
-    prepare_data()
+    dtype = get_dtype_dict()
+    prepare_data(dtype)
 
     # Assertions for chromosome filtering
     for filepath, expected_chromosomes in [
