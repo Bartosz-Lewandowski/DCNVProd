@@ -1,5 +1,6 @@
 import gzip
 import os
+import shutil
 import tempfile
 
 import numpy as np
@@ -139,9 +140,9 @@ def setup_and_teardown():
         yield  # This is where the code of an actual test function goes
     finally:
         # Cleanup after a test
-        for path in [TRAIN_PATH, TEST_PATH, VAL_PATH, STATS_FOLDER]:
+        for path in [TRAIN_FOLDER, TEST_FOLDER, VAL_FOLDER, STATS_FOLDER]:
             if os.path.exists(path):
-                os.remove(path)
+                shutil.rmtree(path)
 
 
 def test_data_files_created(create_sim_data, setup_and_teardown):  # Use both fixtures
