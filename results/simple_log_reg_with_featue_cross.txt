@@ -1,0 +1,15 @@
+Simple logistic regression
+F1 score: 0.7925395255635425
+CNV metrics: {'predicted_correctly': {'dup': 135, 'del': 0}, 'predicted_half_correctly': {'dup': 92, 'del': 1062}, 'intersected_half_correctly': {'dup': 66, 'del': 0}, 'predicted_incorrectly': 58, 'prediction_cov': 0.62334001539642, 'all_true_cnvs': 2193, 'all_predicted_cnvs': 12335}
+              precision    recall  f1-score   support
+
+           0       0.99      0.99      0.99    964444
+           1       1.00      0.29      0.44    988794
+           2       0.89      1.00      0.94   5990090
+
+    accuracy                           0.91   7943328
+   macro avg       0.96      0.76      0.79   7943328
+weighted avg       0.92      0.91      0.89   7943328
+[[ 951697       1   12746]
+ [   1055  282478  705261]
+ [   4908     223 5984959]]

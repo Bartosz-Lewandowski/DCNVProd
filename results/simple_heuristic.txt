@@ -1,22 +1,22 @@
 Simple heuristic
-F1 score: 0.333170336219202
+F1 score: 0.3334350953720389
 CNV metrics:
-predicted_correctly: {'dup': 1, 'del': 0}
+predicted_correctly: {'dup': 0, 'del': 0}
 predicted_half_correctly: {'dup': 0, 'del': 0}
 intersected_half_correctly: {'dup': 0, 'del': 0}
-predicted_incorrectly: 1051693
-prediction_cov: 0.11902488779938016
-all_true_cnvs: 1721
-all_predicted_cnvs: 1378249
+predicted_incorrectly: 1290211
+prediction_cov: 0.12299456026249707
+all_true_cnvs: 2193
+all_predicted_cnvs: 1711395
               precision    recall  f1-score   support
 
-           0       0.12      0.12      0.12    782623
-           1       0.12      0.12      0.12    782279
-           2       0.76      0.76      0.76   5038670
+           0       0.12      0.12      0.12    964444
+           1       0.12      0.12      0.12    988794
+           2       0.75      0.75      0.75   5990090
 
-    accuracy                           0.61   6603572
-   macro avg       0.33      0.33      0.33   6603572
-weighted avg       0.61      0.61      0.61   6603572
-[[  92005   92859  597759]
- [  92631   92855  596793]
- [ 596725  596161 3845784]]
+    accuracy                           0.60   7943328
+   macro avg       0.33      0.33      0.33   7943328
+weighted avg       0.60      0.60      0.60   7943328
+[[ 117430  120273  726741]
+ [ 119620  122809  746365]
+ [ 726369  745126 4518595]]
