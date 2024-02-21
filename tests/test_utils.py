@@ -3,15 +3,27 @@ import os
 import tempfile
 
 import numpy as np
+import pandas as pd
 import pytest
 from pybedtools import BedTool
 
-from src.utils import (  # Replace with your actual module name
+from src.paths import (
+    FEATURES_COMBINED_FILE,
+    STATS_FOLDER,
+    TEST_FOLDER,
+    TEST_PATH,
+    TRAIN_FOLDER,
+    TRAIN_PATH,
+    VAL_FOLDER,
+    VAL_PATH,
+)
+from src.utils import (
     BedFormat,
     BedFormat_to_BedTool,
     BedTool_to_BedFormat,
     combine_and_cleanup_reference_genome,
     download_reference_genome,
+    prepare_data,
 )
 
 
@@ -107,3 +119,61 @@ def test_combine_and_cleanup_reference_genome():
         # Assert the gzipped file was cleaned up
         assert not os.path.exists(gz_file_path_1)
         assert not os.path.exists(gz_file_path_2)
+
+
+@pytest.fixture
+def create_sim_data():
+    """Fixture to create a sample, in-memory DataFrame simulating your data"""
+    sim_data = {"chr": list(range(1, 19))}
+    return pd.DataFrame(sim_data)
+
+
+@pytest.fixture(autouse=True)  # Run this fixture automatically for each test
+def setup_and_teardown():
+    # Preparations before a test
+    try:
+        os.makedirs(TRAIN_FOLDER, exist_ok=True)
+        os.makedirs(TEST_FOLDER, exist_ok=True)
+        os.makedirs(VAL_FOLDER, exist_ok=True)
+        os.makedirs(STATS_FOLDER, exist_ok=True)
+        yield  # This is where the code of an actual test function goes
+    finally:
+        # Cleanup after a test
+        for path in [TRAIN_PATH, TEST_PATH, VAL_PATH, STATS_FOLDER]:
+            if os.path.exists(path):
+                os.remove(path)
+
+
+def test_data_files_created(create_sim_data, setup_and_teardown):  # Use both fixtures
+    """Test whether prepare_data generates the expected files"""
+    data_file_path = os.path.join(STATS_FOLDER, FEATURES_COMBINED_FILE)
+    with open(data_file_path, "w") as f:
+        create_sim_data.to_csv(f, index=False)  # Save example data
+
+    # Call the function you're testing
+    prepare_data()
+
+    # Assertions
+    assert os.path.exists(TRAIN_PATH)
+    assert os.path.exists(TEST_PATH)
+    assert os.path.exists(VAL_PATH)
+
+
+def test_data_filtering(create_sim_data, setup_and_teardown):
+    """Test if the data is correctly filtered into train/test/val sets."""
+    data_file_path = os.path.join(STATS_FOLDER, FEATURES_COMBINED_FILE)
+    with open(data_file_path, "w") as f:
+        create_sim_data.to_csv(f, index=False)  # Save example data
+
+    # Call the function you're testing
+    prepare_data()
+
+    # Assertions for chromosome filtering
+    for filepath, expected_chromosomes in [
+        (TEST_PATH, {3, 13, 18}),
+        (VAL_PATH, {4, 9}),
+        (TRAIN_PATH, set(range(1, 19)).difference({3, 4, 9, 13, 18})),  # All others
+    ]:
+        df = pd.read_csv(filepath)
+        unique_chromosomes = set(df["chr"])
+        assert unique_chromosomes == expected_chromosomes
