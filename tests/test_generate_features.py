@@ -91,12 +91,12 @@ def test_expect_table_columns_to_match_ordered_list(df):
             "STAT_CROSS",
             "STAT_CROSS2",
             "cnv_type",
-            "NXT_5",
-            "NXT_10",
-            "NXT_20",
             "PR_5",
             "PR_10",
             "PR_20",
+            "NXT_5",
+            "NXT_10",
+            "NXT_20",
         ]
     )
     assert result["success"]
