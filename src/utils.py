@@ -115,8 +115,8 @@ def get_dtype_dict() -> dict:
         "BAM_CDEL": "int16",
         "BAM_CSOFT_CLIP": "int16",
         "NM tag": "int16",
-        "STAT_CROSS": "float16",
-        "STAT_CROSS2": "float16",
+        "STAT_CROSS": "float32",
+        "STAT_CROSS2": "float32",
         "BAM_CROSS": "int64",
         "PR_5": "float32",
         "PR_10": "float64",
@@ -133,9 +133,9 @@ def prepare_data(dtype: dict) -> None:
     os.makedirs(VAL_FOLDER, exist_ok=True)
     data_file = "/".join([STATS_FOLDER, FEATURES_COMBINED_FILE])
     sim_data = pd.read_csv(data_file, sep=",", dtype=dtype)
-    test = sim_data[sim_data["chr"].isin([3, 13, 18])].reset_index(drop=True)
-    val = sim_data[sim_data["chr"].isin([4, 9])].reset_index(drop=True)
-    train = sim_data[~sim_data["chr"].isin([3, 4, 9, 13, 18])].reset_index(drop=True)
+    test = sim_data[sim_data["chr"].isin([3, 11, 18])].reset_index(drop=True)
+    val = sim_data[sim_data["chr"].isin([4, 13])].reset_index(drop=True)
+    train = sim_data[~sim_data["chr"].isin([3, 4, 11, 13, 18])].reset_index(drop=True)
 
     train.to_csv(TRAIN_PATH, index=False)
     val.to_csv(VAL_PATH, index=False)
