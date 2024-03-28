@@ -50,9 +50,8 @@ class DNN(nn.Module):
 
 
 class Train:
-    def __init__(self, eda: bool, dtype: dict):
+    def __init__(self, eda: bool):
         self.eda = eda
-        self.dtype = dtype
         self.columns_to_drop = [
             "chr",
             "start",
@@ -78,7 +77,7 @@ class Train:
         study = optuna.create_study(direction="maximize")  # Maximize F1-score
         study.optimize(
             lambda trial: self._objective(trial, X_train, X_val, y_train, y_val),
-            timeout=3600 * 30,
+            n_trials=2,
         )
         results_df = pd.DataFrame(self.results)
         self.__save_HP_results()
@@ -92,7 +91,7 @@ class Train:
 
         train_data = self.convert_data_to_pytorch_dataset(X_preprocessed, y)
         train_data_loader = DataLoader(
-            train_data, batch_size=self.best_params["batch_size"], num_workers=10
+            train_data, batch_size=self.best_params["batch_size"]
         )
         # Model parameters
         input_size = X_preprocessed.shape[1]  # Number of features
@@ -131,7 +130,7 @@ class Train:
         os.makedirs("models", exist_ok=True)
         torch.save(model.state_dict(), "models/DNN_model.pth")
 
-    def _evaluate_model(self):
+    def evaluate_model(self):
         X_test, y_test = self._load_test_files()
         if not self.best_params:
             self.best_params = (
@@ -225,8 +224,8 @@ class Train:
 
         hidden_size = trial.suggest_int("hidden_size", 32, 512, step=32)
         lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
-        num_epochs = trial.suggest_int("num_epochs", 2, 20)
-        batch_size = trial.suggest_categorical("batch_size", [32, 64, 128, 512])
+        num_epochs = trial.suggest_int("num_epochs", 5, 50)
+        batch_size = trial.suggest_categorical("batch_size", [32, 64, 128])
         optimizer_name = trial.suggest_categorical(
             "optimizer", ["SGD", "Adam", "Nadam", "RMSprop"]
         )
@@ -237,9 +236,9 @@ class Train:
 
         # Convert data to PyTorch Dataset
         train_dataset = self.convert_data_to_pytorch_dataset(X_train, y_train)
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=10)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size)
         val_dataset = self.convert_data_to_pytorch_dataset(X_val_res, y_val)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=10)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
         input_size = X_train.shape[1]  # Number of features
         # Model with suggested hyperparameters
@@ -370,8 +369,8 @@ class Train:
     def convert_data_to_pytorch_dataset(
         self, X: pd.DataFrame, y: pd.Series
     ) -> tuple[TensorDataset, TensorDataset]:
-        X_tensor = torch.tensor(X.values, dtype=torch.float32)
-        y_tensor = torch.tensor(y.values, dtype=torch.long)
+        X_tensor = torch.tensor(X.values, dtype=torch.float64ą)
+        y_tensor = torch.tensor(y.values, dtype=torch.int8)
         tensor_dataset = TensorDataset(X_tensor, y_tensor)
         return tensor_dataset
 
@@ -429,30 +428,7 @@ class Train:
         results_df.to_csv("HP_results/DNN_HPS_results.csv", index=False)
 
 
-# if __name__ == "__main__":
-#     lbl_e = LabelEncoder()
-#     X, y = _load_train_files(lbl_e, columns_to_drop)
-#     X_test, y_test = _load_test_files(lbl_e, columns_to_drop)
-#     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
-#     train_dataset = convert_data_to_pytorch_dataset(X_train, y_train)
-#     val_dataset = convert_data_to_pytorch_dataset(X_val, y_val)
-#     test_dataset = convert_data_to_pytorch_dataset(X_test, y_test)
-#     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-#     val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
-#     test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
-#     # Define the model
-#     input_size = X_train.shape[1]  # Number of features
-#     hidden_size = 64
-#     num_classes = len(np.unique(y_train))
-#     model = DNN(input_size, hidden_size, num_classes)
-
-#     # Define loss function and optimizer
-#     criterion = nn.CrossEntropyLoss()
-#     optimizer = optim.SGD(model.parameters(), lr=0.001)
-#     num_epochs = 10
-
-#     # Train the model
-#     train_model(train_loader, model, num_epochs, optimizer)
-
-#     # Evaluate the model
-#     evaluate_model(test_loader, model)
+if __name__ == "__main__":
+    train = Train(eda=False)
+    train.train()
+    train.evaluate_model()
