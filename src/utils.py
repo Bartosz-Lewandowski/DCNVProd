@@ -133,9 +133,9 @@ def prepare_data(dtype: dict) -> None:
     os.makedirs(VAL_FOLDER, exist_ok=True)
     data_file = "/".join([STATS_FOLDER, FEATURES_COMBINED_FILE])
     sim_data = pd.read_csv(data_file, sep=",", dtype=dtype)
-    test = sim_data[sim_data["chr"].isin([3, 11, 18])].reset_index(drop=True)
-    val = sim_data[sim_data["chr"].isin([4, 13])].reset_index(drop=True)
-    train = sim_data[~sim_data["chr"].isin([3, 4, 11, 13, 18])].reset_index(drop=True)
+    test = sim_data[sim_data["chr"].isin([3, 13, 16])].reset_index(drop=True)
+    val = sim_data[sim_data["chr"].isin([4, 11])].reset_index(drop=True)
+    train = sim_data[~sim_data["chr"].isin([3, 4, 11, 13, 16])].reset_index(drop=True)
 
     train.to_csv(TRAIN_PATH, index=False)
     val.to_csv(VAL_PATH, index=False)
