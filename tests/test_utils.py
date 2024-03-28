@@ -174,9 +174,9 @@ def test_data_filtering(create_sim_data, setup_and_teardown):
 
     # Assertions for chromosome filtering
     for filepath, expected_chromosomes in [
-        (TEST_PATH, {3, 11, 18}),
-        (VAL_PATH, {4, 13}),
-        (TRAIN_PATH, set(range(1, 19)).difference({3, 4, 11, 13, 18})),  # All others
+        (TEST_PATH, {3, 13, 16}),
+        (VAL_PATH, {4, 11}),
+        (TRAIN_PATH, set(range(1, 19)).difference({3, 4, 11, 13, 16})),  # All others
     ]:
         df = pd.read_csv(filepath)
         unique_chromosomes = set(df["chr"])
