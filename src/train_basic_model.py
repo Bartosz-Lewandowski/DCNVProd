@@ -1,3 +1,4 @@
+import logging
 import os
 import pickle
 from typing import Union
@@ -9,32 +10,29 @@ from lightgbm import LGBMClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
-from sklearn.model_selection import train_test_split
 from sklearn.multiclass import OneVsRestClassifier
-from sklearn.preprocessing import label_binarize
+from sklearn.preprocessing import StandardScaler, label_binarize
 from xgboost import XGBClassifier
 
 from analysis.plots import plot_PR
 
 from .metrics import CNVMetric
 from .paths import (
-    BASIC_MODEL_FOLDER,
     BASIC_MODEL_PATH,
-    FEATURES_COMBINED_FILE,
+    MODELS_FOLDER,
     OVR_BASIC_MODEL_PATH,
-    STATS_FOLDER,
-    TEST_FOLDER,
     TEST_PATH,
-    TRAIN_FOLDER,
     TRAIN_PATH,
+    VAL_PATH,
 )
+
+logging.basicConfig(format="%(asctime)s : %(message)s", level=logging.INFO)
 
 
 class Train:
-    def __init__(self, eda: bool) -> None:
+    def __init__(self, eda: bool, dtype: dict) -> None:
         self.eda = eda
-        self.data_file = "/".join([STATS_FOLDER, FEATURES_COMBINED_FILE])
-        self._create_train_test_folders()
+        self.dtype = dtype
         self.columns_to_drop = [
             "chr",
             "start",
@@ -45,69 +43,40 @@ class Train:
             "BAM_CMATCH",
         ]
         self.results: list = []
-        self.stats1 = True
-        self.stats2 = True
-        self.bam_fc = True
-        self.prev_and_next = True
-        self.log = False
         self.best_score: float = 0.0
+        self.best_params: dict = {}
         self.mapping = {"del": 0, "dup": 1, "normal": 2}
 
-    def prepare_data(self) -> None:
-        sim_data = pd.read_csv(
-            self.data_file,
-            sep=",",
-            dtype={
-                "chr": "int8",
-                "start": "int32",
-                "end": "int32",
-                "overlap": "float32",
-                "intq": "float16",
-                "means": "float16",
-                "std": "float16",
-                "BAM_CMATCH": "int32",
-                "BAM_CINS": "int16",
-                "BAM_CDEL": "int16",
-                "BAM_CSOFT_CLIP": "int16",
-                "NM tag": "int16",
-                "STAT_CROSS": "float16",
-                "STAT_CROSS2": "float16",
-                "BAM_CROSS": "int64",
-            },
-        )
-        test = sim_data[sim_data["chr"].isin([13, 7])].reset_index(drop=True)
-        train = sim_data[sim_data["chr"].isin([1, 2, 3, 9])].reset_index(drop=True)
-        train.to_csv(TRAIN_PATH, index=False)
-        test.to_csv(TEST_PATH, index=False)
-
     def train(self):
-        X, y = self._load_train_files()
+        logging.info("Loading train files...")
+        X_train, y_train = self._load_train_files()
+        logging.info("Loading val files...")
+        X_val, y_val = self._load_val_files()
         study = optuna.create_study(direction="maximize")
-        study.optimize(lambda trial: self._objective(trial, X, y), timeout=3600 * 7)
-
+        study.optimize(
+            lambda trial: self._objective(trial, X_train, y_train, X_val, y_val),
+            timeout=3600 * 8,
+        )
         # Get the best hyperparameters
+        logging.info("Saving best hyperparameters...")
         results_df = pd.DataFrame(self.results)
-        self.best_params = results_df.sort_values(by="f1", ascending=False).iloc[0]
+        self.best_params = (
+            results_df.sort_values(by="f1", ascending=False).iloc[0].to_dict()
+        )
+        self.__save_HP_results(results_df)
+        X = pd.concat([X_train, X_val])
+        y = pd.concat([y_train, y_val])
 
-        if not self.best_params["stats1"]:
-            self.stats1 = False
-            X = X.drop(["STAT_CROSS"], axis=1)
-
-        if not self.best_params["stats2"]:
-            self.stats2 = False
-            X = X.drop(["STAT_CROSS2"], axis=1)
-
-        if not self.best_params["bam_fc"]:
-            self.bam_fc = False
-            X = X.drop(["BAM_CROSS"], axis=1)
-
-        if not self.best_params["prev_and_next"]:
-            self.prev_and_next = False
-            X = X.drop(["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1)
+        X = self._preprocess_data(X)
 
         if self.best_params["scaler"] == "log":
             self.log = True
             X, _ = self.__log_transform(X, X)
+        elif self.best_params["scaler"] == "standard":
+            self.scaler = StandardScaler()
+            X = self.scaler.fit_transform(X)
+        else:
+            pass
 
         if self.best_params["model"] == "XGBoost":
             best_model = self.__get_xgboost_model(
@@ -124,11 +93,13 @@ class Train:
                 self.best_params["class_weight"],
                 self.best_params["params"],
             )
-
+        logging.info("Training best model...")
         best_model.fit(X, y)
-        os.makedirs(BASIC_MODEL_FOLDER, exist_ok=True)
+        os.makedirs(MODELS_FOLDER, exist_ok=True)
         if self.eda:
+            logging.info("Training OneVsRest model...")
             y_bin = label_binarize(y, classes=[*range(3)])
+            print(np.unique(y_bin))
             one_vs_rest_model = OneVsRestClassifier(best_model)
             one_vs_rest_model.fit(X, y_bin)
             with open(OVR_BASIC_MODEL_PATH, "wb") as f:
@@ -137,23 +108,23 @@ class Train:
             pickle.dump(best_model, f)
 
     def evaluate_on_test_data(self):
+        logging.info("Evaluating on test data...")
         X_test, y_test = self._load_test_files()
-        if not self.stats1:
-            X_test = X_test.drop(["STAT_CROSS"], axis=1)
-
-        if not self.stats2:
-            X_test = X_test.drop(["STAT_CROSS2"], axis=1)
-
-        if not self.bam_fc:
-            X_test = X_test.drop(["BAM_CROSS"], axis=1)
-
-        if not self.prev_and_next:
-            X_test = X_test.drop(
-                ["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1
+        if not self.best_params:
+            self.best_params = (
+                pd.read_csv("HP_results/ML_best_HP.csv")
+                .sort_values("f1", ascending=False)
+                .iloc[0]
+                .to_dict()
             )
+        X_test = self._preprocess_data(X_test)
 
-        if self.log:
+        if self.best_params["scaler"] == "log":
             X_test, _ = self.__log_transform(X_test, X_test)
+        elif self.best_params["scaler"] == "standard":
+            X_test = self.scaler.transform(X_test)
+        else:
+            pass
 
         model = pickle.load(open(BASIC_MODEL_PATH, "rb"))
         pred = model.predict(X_test)
@@ -176,7 +147,7 @@ class Train:
             print(metrics_res, file=f)
 
     # Define the objective function to optimize
-    def _objective(self, trial, X, y):
+    def _objective(self, trial, X_train, y_train, X_val, y_val):
         # Define the hyperparameters to search over
         model_type = trial.suggest_categorical(
             "model_type", ["LightGBM", "XGBoost", "RandomForest", "LogisticRegression"]
@@ -191,44 +162,45 @@ class Train:
                 {0: 3, 1: 5, 2: 1},
             ],
         )
-        scaler = trial.suggest_categorical("scaler", ["log", None])
+        scaler = trial.suggest_categorical("scaler", ["log", "standard", None])
         stats1 = trial.suggest_categorical("stats1", [True, False])
         stats2 = trial.suggest_categorical("stats2", [True, False])
         bam_fc = trial.suggest_categorical("bam_fc", [True, False])
         prev_and_next = trial.suggest_categorical("prev_and_next", [True, False])
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, stratify=y, test_size=0.2, random_state=42
-        )
         if not stats1:
             X_train = X_train.drop(["STAT_CROSS"], axis=1)
-            X_test = X_test.drop(["STAT_CROSS"], axis=1)
+            X_val = X_val.drop(["STAT_CROSS"], axis=1)
 
         if not stats2:
             X_train = X_train.drop(["STAT_CROSS2"], axis=1)
-            X_test = X_test.drop(["STAT_CROSS2"], axis=1)
+            X_val = X_val.drop(["STAT_CROSS2"], axis=1)
 
         if not bam_fc:
             X_train = X_train.drop(["BAM_CROSS"], axis=1)
-            X_test = X_test.drop(["BAM_CROSS"], axis=1)
+            X_val = X_val.drop(["BAM_CROSS"], axis=1)
 
         if not prev_and_next:
             X_train = X_train.drop(
                 ["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1
             )
-            X_test = X_test.drop(
+            X_val = X_val.drop(
                 ["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1
             )
 
         if scaler == "log":
-            X_train, x_test_res = self.__log_transform(X_train, X_test)
+            X_train, X_val_res = self.__log_transform(X_train, X_val)
+        elif scaler == "standard":
+            scaler = StandardScaler()
+            X_train = scaler.fit_transform(X_train)
+            X_val_res = scaler.transform(X_val)
         else:
-            x_test_res = X_test
+            X_val_res = X_val
 
         if model_type == "RandomForest":
             params = {
-                "n_estimators": trial.suggest_int("n_estimators", 20, 300, step=20),
-                "max_depth": trial.suggest_int("max_depth", 20, 200, step=20),
+                "n_estimators": trial.suggest_int("n_estimators", 20, 200, step=20),
+                "max_depth": trial.suggest_int("max_depth", 20, 160, step=20),
                 "min_samples_split": trial.suggest_int("min_samples_split", 3, 150),
                 "min_samples_leaf": trial.suggest_int("min_samples_leaf", 2, 60),
             }
@@ -243,8 +215,8 @@ class Train:
             model = self.__get_logistic_regression_model(class_weight, params)
         elif model_type == "LightGBM":
             params = {
-                "max_depth": trial.suggest_int("max_depth", 20, 200, step=20),
-                "n_estimators": trial.suggest_int("n_estimators", 20, 300, step=20),
+                "max_depth": trial.suggest_int("max_depth", 20, 160, step=20),
+                "n_estimators": trial.suggest_int("n_estimators", 20, 200, step=20),
                 "reg_alpha": trial.suggest_float("reg_alpha", 1e-3, 1.0),
                 "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 1.0),
                 "learning_rate": trial.suggest_categorical(
@@ -258,7 +230,7 @@ class Train:
         elif model_type == "XGBoost":
             params = {
                 "verbosity": 0,
-                "max_depth": trial.suggest_int("max_depth", 20, 200, step=20),
+                "max_depth": trial.suggest_int("max_depth", 20, 120, step=20),
                 "n_estimators": trial.suggest_int("n_estimators", 10, 80, step=10),
                 "booster": trial.suggest_categorical("booster", ["gbtree", "dart"]),
                 # L2 regularization weight.
@@ -293,8 +265,8 @@ class Train:
 
         # Przewidywanie na zbiorze testowym
 
-        y_pred = model.predict(x_test_res)
-        f1 = f1_score(y_test, y_pred, average="macro")
+        y_pred = model.predict(X_val_res)
+        f1 = f1_score(y_val, y_pred, average="macro")
 
         self.results.append(
             {
@@ -310,6 +282,20 @@ class Train:
             }
         )
         return f1
+
+    def _preprocess_data(self, X: pd.DataFrame) -> pd.DataFrame:
+        if not self.best_params["stats1"]:
+            X = X.drop(["STAT_CROSS"], axis=1)
+
+        if not self.best_params["stats2"]:
+            X = X.drop(["STAT_CROSS2"], axis=1)
+
+        if not self.best_params["bam_fc"]:
+            X = X.drop(["BAM_CROSS"], axis=1)
+
+        if not self.best_params["prev_and_next"]:
+            X = X.drop(["PR_5", "NXT_5", "PR_10", "NXT_10", "PR_20", "NXT_20"], axis=1)
+        return X
 
     def __get_random_forest_model(
         self,
@@ -365,7 +351,7 @@ class Train:
         return model
 
     def _load_train_files(self) -> tuple[pd.DataFrame, pd.Series]:
-        train = pd.read_csv(TRAIN_PATH, sep=",")
+        train = pd.read_csv(TRAIN_PATH, dtype=self.dtype, sep=",")
         if self.eda:
             self._perform_eda(train)
         train["cnv_type"] = self.map_function(train["cnv_type"])
@@ -374,11 +360,18 @@ class Train:
         return X, y
 
     def _load_test_files(self) -> tuple[pd.DataFrame, pd.Series]:
-        df_test = pd.read_csv(TEST_PATH, sep=",")
+        df_test = pd.read_csv(TEST_PATH, dtype=self.dtype, sep=",")
         df_test["cnv_type"] = self.map_function(df_test["cnv_type"])
         X_test_sim = df_test.drop(self.columns_to_drop, axis=1)
         y_test_sim = df_test["cnv_type"]
         return X_test_sim, y_test_sim
+
+    def _load_val_files(self) -> tuple[pd.DataFrame, pd.Series]:
+        val = pd.read_csv(VAL_PATH, dtype=self.dtype, sep=",")
+        val["cnv_type"] = self.map_function(val["cnv_type"])
+        X = val.drop(self.columns_to_drop, axis=1)
+        y = val["cnv_type"]
+        return X, y
 
     def __log_transform(
         self, X_train: pd.DataFrame, x_test: pd.DataFrame
@@ -394,10 +387,6 @@ class Train:
             print(df.groupby("cnv_type")["intq"].describe(), file=f)
             print(df.sort_values(by="means", ascending=False).head(15), file=f)
 
-    def _create_train_test_folders(self):
-        os.makedirs(TRAIN_FOLDER, exist_ok=True)
-        os.makedirs(TEST_FOLDER, exist_ok=True)
-
     def _get_precision_recall_curve(self, X_test: pd.DataFrame, y_test: np.ndarray):
         model = pickle.load(open(OVR_BASIC_MODEL_PATH, "rb"))
         y_score = model.predict(X_test)
@@ -410,3 +399,8 @@ class Train:
             return list(map(rev_map.get, target_values))
         else:
             return list(map(self.mapping.get, target_values))
+
+    def __save_HP_results(self, results_df: pd.DataFrame):
+        os.makedirs("HP_results", exist_ok=True)
+        results_sorted = results_df.sort_values(by="f1", ascending=False)
+        results_sorted.to_csv("HP_results/ML_best_HP.csv", index=False)
