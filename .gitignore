@@ -25,3 +25,5 @@ train_target/
 reference_genome.pac
 tests/test_generate_features/sim_data.bam.bai
 /basic_model
+HP_results/
+CNVnator/
