@@ -18,7 +18,7 @@ InSilicoSeq==2.0.0
 isort==5.10.1
 joblib==1.2.0
 kiwisolver==1.4.4
-lightgbm==4.1.0
+lightgbm==4.6.0
 llvmlite==0.39.0
 matplotlib==3.5.2
 mccabe==0.7.0
